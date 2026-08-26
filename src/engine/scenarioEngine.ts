@@ -2,6 +2,7 @@ import { useAgentStore } from '@/stores/agents'
 import { useTaskStore } from '@/stores/tasks'
 import { useExecutionStore } from '@/stores/execution'
 import { useCompanyStore } from '@/stores/company'
+import { snapshotAll } from '@/stores/persistence'
 import type { WorkflowStep } from '@/types/workflow'
 
 const TICK_MS = 50
@@ -296,11 +297,9 @@ export class ScenarioEngine {
     void this.snapshot()
   }
 
-  /** 持久化快照（fire-and-forget，避免循環 import 問題） */
+  /** 持久化快照（fire-and-forget） */
   private snapshot(): void {
-    import('@/stores/persistence')
-      .then((m) => m.snapshotAll())
-      .catch(() => {})
+    snapshotAll()
   }
 }
 

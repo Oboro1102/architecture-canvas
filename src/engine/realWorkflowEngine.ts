@@ -4,6 +4,7 @@ import { useExecutionStore } from '@/stores/execution'
 import { useCompanyStore } from '@/stores/company'
 import { useAIStore } from '@/stores/ai'
 import { useTraceStore } from '@/stores/trace'
+import { RealAgentRuntime } from './runtime/realAgentRuntime'
 import type { RealRunTrace } from './runtime/realAgentRuntime'
 import type { Agent } from '@/types/agent'
 import type { Project } from '@/types/project'
@@ -171,8 +172,7 @@ export class RealWorkflowEngine {
     context: Parameters<AgentRuntime['run']>[1],
   ): Promise<Awaited<ReturnType<AgentRuntime['run']>>> {
     if (mode !== 'real') return runtime.run(agent, context)
-    // Rebuild a RealAgentRuntime with the trace hook (§29 observability).
-    const { RealAgentRuntime } = await import('./runtime/realAgentRuntime')
+    // RealAgentRuntime is statically imported above; rebuild with trace hook (§29).
     const ai = this.ai
     const real = new RealAgentRuntime(ai.buildProvider(), ai.model, onTrace)
     return real.run(agent, context)

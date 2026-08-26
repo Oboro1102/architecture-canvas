@@ -27,16 +27,16 @@ const typeIcon: Record<string, string> = {
 
 <template>
   <div class="flex h-full flex-col">
-    <h3 class="px-1 pb-2 text-xs font-semibold tracking-wide text-muted-foreground">
-      執行時間軸
-    </h3>
-    <p
-      v-if="exec.events.length === 0"
-      class="card p-4 text-center text-xs text-muted-foreground"
-    >
+    <h3 class="px-1 pb-2 text-xs font-semibold tracking-wide text-muted-foreground">執行時間軸</h3>
+    <p v-if="exec.events.length === 0" class="card p-4 text-center text-xs text-muted-foreground">
       還沒有活動紀錄。Agent 工作時事件會即時顯示在這裡。
     </p>
-    <TransitionGroup v-else name="event" tag="ol" class="event-scroll space-y-2 overflow-y-auto pr-1">
+    <TransitionGroup
+      v-else
+      name="event"
+      tag="ol"
+      class="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1"
+    >
       <li v-for="e in [...exec.events].reverse()" :key="e.id">
         <button
           class="w-full rounded-md border border-transparent px-2 py-1.5 text-left text-xs transition-colors hover:border-border hover:bg-muted/60 focus-visible:focus-ring"
