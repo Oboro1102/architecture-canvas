@@ -95,6 +95,7 @@ function doSwitchReal(): void {
     <DialogContent class="max-h-[85dvh] max-w-lg overflow-y-auto">
       <DialogHeader v-if="confirmStep" class="sr-only">
         <DialogTitle>使用 Real AI</DialogTitle>
+        <DialogDescription>確認切換至 Real AI 前的安全提醒。</DialogDescription>
       </DialogHeader>
 
       <!-- §47 first-time onboarding confirmation -->
