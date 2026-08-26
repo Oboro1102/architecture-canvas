@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pixel Agent Demo v2 — 獨立角色形象</title>
+<style>
+  :root {
+    --bg: #141417;
+    --card: #1d1d22;
+    --border: #2c2c33;
+    --fg: #e7e7ea;
+    --muted: #9b9ba3;
+    --accent: #8b7cf6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: "Segoe UI", "Microsoft JhengHei", system-ui, sans-serif;
+    padding: 24px;
+  }
+  h1 { font-size: 18px; margin-bottom: 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 20px; line-height: 1.6; }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .stylepick { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+  button {
+    background: var(--card); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 14px; font-size: 13px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  button:hover { border-color: var(--accent); }
+  button.active { border-color: var(--accent); color: var(--accent); }
+  .stylepick .lbl { color: var(--muted); font-size: 12px; margin-right: 2px; }
+
+  .office { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  .desk {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 10px 12px; display: flex; flex-direction: column;
+    align-items: center; gap: 8px; position: relative; overflow: visible;
+  }
+  .desk.working   { border-color: rgba(16,185,129,.45); box-shadow: 0 0 16px -6px rgba(16,185,129,.55); }
+  .desk.blocked   { border-color: rgba(239,68,68,.5); }
+  .desk.completed { border-color: rgba(20,184,166,.45); }
+  .role  { font-size: 13px; font-weight: 600; }
+  .name  { font-size: 11px; color: var(--muted); margin-top: -6px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: #ffffff12; color: var(--muted); }
+  .desk.working   .badge { color: #34d399; }
+  .desk.waiting   .badge { color: #fbbf24; }
+  .desk.blocked   .badge { color: #f87171; }
+  .desk.reviewing .badge { color: #34d399; }
+  .desk.completed .badge { color: #2dd4bf; }
+
+  /* 頭像（圓形） */
+  .avatar { width: 84px; height: 84px; position: relative; }
+  .avatar img {
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    background: #ffffff10;
+    border: 2px solid var(--border);
+    padding: 4px;
+  }
+  .desk.working .avatar img { border-color: rgba(16,185,129,.6); }
+  .desk.blocked .avatar img { border-color: rgba(239,68,68,.6); }
+  .desk.completed .avatar img { border-color: rgba(20,184,166,.6); }
+
+  /* 工作中：輕微上下律動 + 打字手 */
+  @keyframes bob { 0%,100% { transform: translateY(0);} 50% { transform: translateY(-3px);} }
+  .working .avatar img { animation: bob 1s ease-in-out infinite; }
+  .hands { position:absolute; bottom:-4px; left:50%; transform:translateX(-50%);
+           font-size:14px; opacity:0; letter-spacing:-2px; }
+  .working .hands { opacity:1; }
+  @keyframes tapL { 0%,49%{transform:translateY(0);} 50%,100%{transform:translateY(2px);} }
+  .hands span:first-child { display:inline-block; animation: tapL .3s steps(1) infinite; }
+  .hands span:last-child  { display:inline-block; animation: tapL .3s steps(1) infinite reverse; }
+
+  /* 等待：頭上冒 zzz */
+  .zzz { position:absolute; top:-6px; right:-8px; opacity:0; font-size:13px; color:#fbbf24; font-weight:700; }
+  .waiting .zzz { opacity:1; }
+  @keyframes floatUp { 0%{transform:translateY(0);opacity:.9;} 100%{transform:translateY(-10px);opacity:.1;} }
+  .waiting .zzz { animation: floatUp 1.8s ease-in-out infinite; }
+
+  /* 阻塞：紅色 ❗ 彈跳 */
+  .alert { position:absolute; top:-10px; right:-6px; font-size:18px; font-weight:900;
+           color:#ef4444; text-shadow:0 2px 4px rgba(0,0,0,.5); opacity:0; }
+  .blocked .alert { opacity:1; animation: bounce .7s ease-in-out infinite; }
+  @keyframes bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-5px);} }
+
+  /* 完成：🎉 撒花 */
+  .party { position:absolute; top:-14px; left:50%; transform:translateX(-50%); font-size:18px; opacity:0; }
+  .completed .party { opacity:1; animation: pop 1s ease-in-out infinite; }
+  @keyframes pop { 0%,100%{transform:translateX(-50%) scale(1);} 50%{transform:translateX(-50%) scale(1.25);} }
+</style>
+</head>
+<body>
+  <h1>🏢 Pixel Agent Demo v2</h1>
+  <p class="sub">每個角色用現成角色頭像系統生成<b>獨立的造型</b>（髮型、服裝、配件都不同），CSS 只負責狀態動畫。<br>先挑一組喜歡的風格，再切換狀態看效果～</p>
+
+  <div class="stylepick">
+    <span class="lbl">頭像風格：</span>
+    <button data-style="bottts-neutral" class="active">機器人</button>
+    <button data-style="pixel-art">Pixel Art</button>
+    <button data-style="adventurer">Adventurer</button>
+    <button data-style="big-smile">Big Smile</button>
+    <button data-style="fun-emoji" disabled hidden></button>
+  </div>
+
+  <div class="controls">
+    <button data-state="idle">閒置</button>
+    <button data-state="working" class="active">工作中</button>
+    <button data-state="waiting">等待中</button>
+    <button data-state="blocked">已阻塞</button>
+    <button data-state="reviewing">審查中</button>
+    <button data-state="completed">已完成</button>
+  </div>
+
+  <div class="office" id="office"></div>
+
+<script>
+const ROLES = [
+  { id:'ceo',      label:'CEO',        seed:'ceo-boss',      name:'Alex Chen' },
+  { id:'cto',      label:'CTO',        seed:'cto-tech',      name:'Riley Park' },
+  { id:'product',  label:'產品經理',    seed:'pm-planner',    name:'Sam Lin' },
+  { id:'designer', label:'UX 設計師',   seed:'ux-design',     name:'Momo Ito' },
+  { id:'frontend', label:'前端工程師',  seed:'fe-coder',      name:'Kai Wu' },
+  { id:'backend',  label:'後端工程師',  seed:'be-server',     name:'Nova Kim' },
+  { id:'qa',       label:'QA 工程師',   seed:'qa-tester',     name:'Ivy Tan' },
+];
+
+let currentStyle = 'bottts-neutral';
+const LABEL = { idle:'閒置', working:'工作中', waiting:'等待中', blocked:'已阻塞', reviewing:'審查中', completed:'已完成' };
+
+function avatarURL(style, seed) {
+  return `https://api.dicebear.com/9.x/${style}/svg?seed=${seed}&size=96`;
+}
+
+function render() {
+  const office = document.getElementById('office');
+  office.innerHTML = '';
+  const state = document.querySelector('.controls button.active').dataset.state;
+  for (const r of ROLES) {
+    const d = document.createElement('div');
+    d.className = 'desk ' + state;
+    d.innerHTML = `
+      <div class="avatar">
+        <img src="${avatarURL(currentStyle, r.seed)}" alt="${r.label} 頭像" crossorigin="anonymous">
+        <span class="hands"><span>👋</span><span>👋</span></span>
+        <span class="zzz">💤</span>
+        <span class="alert">❗</span>
+        <span class="party">🎉</span>
+      </div>
+      <span class="role">${r.label}</span>
+      <span class="name">${r.name}</span>
+      <span class="badge">${LABEL[state]}</span>`;
+    office.appendChild(d);
+  }
+}
+
+document.querySelectorAll('.controls button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const s = btn.dataset.state;
+    document.querySelectorAll('.desk').forEach(d => {
+      d.className = 'desk ' + s;
+      d.querySelector('.badge').textContent = LABEL[s];
+    });
+  });
+});
+
+document.querySelectorAll('.stylepick button[data-style]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.stylepick button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentStyle = btn.dataset.style;
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>
