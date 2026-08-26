@@ -71,12 +71,11 @@ const metaEntries = computed(() => {
   <Dialog v-model:open="open">
     <DialogContent
       class="max-h-[85dvh] max-w-lg overflow-y-auto"
-      aria-describedby="event-detail-desc"
     >
       <DialogHeader v-if="event">
         <DialogTitle class="text-sm">{{ event.title }}</DialogTitle>
         <!-- Mode provenance (§32) -->
-        <DialogDescription id="event-detail-desc">
+        <DialogDescription>
           <Badge
             v-if="event.executionMode"
             :variant="event.executionMode === 'real' ? 'default' : 'secondary'"

@@ -7,6 +7,8 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages deployment (spec §4) — project page serves under /<repo>/.
+  base: '/ai-company-os/',
   plugins: [vue(), vueDevTools(), tailwindcss()],
   resolve: {
     alias: {

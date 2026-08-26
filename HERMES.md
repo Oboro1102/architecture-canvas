@@ -4,11 +4,20 @@
 
 ## 專案概要
 
-**AI Company OS** — 模擬「AI 公司」營運的前端應用：Agent 執行任務、產生 Execution Trace、需要 Human Approval，並在 Dashboard 上視覺化。
+**AI Company OS** — 模擬「AI 公司」營運的前端應用：Agent 執行任務、產生 Execution Trace、需要 Human Approval，並以 **Three.js 3D 公司場景**為核心視覺化。
 
-- **V2 架構核心原則**：Mock AI 與 Real AI（LLM Provider）必須共用同一套 Agent Runtime、Workflow、State 與 UI。UI 不知道也不需知道目前是 Mock 還是真實 LLM。禁止為 Real AI 建立獨立 UI 或平行資料模型。
-- 完整規格見 `AI Company OS — V2 Specification.md`（權威文件）；V1 為歷史參考。
-- 目前為純前端階段（無後端），資料以 Pinia store + persistence 模擬。
+- **V3 架構（現行）— Mission Control 監看式介面**：整頁是固定不捲動的監看應用。中央為 3D 公司場景（`src/three/companyScene.ts`，公司 Core + 7 個 Agent 節點 + 連線 + 粒子流），右側為可摺疊控制台（模擬／組織／事件三個分頁，僅面板內部捲動）。**禁止回到 landing page 滾動式版面**——滾動與 3D 互動會互相干擾。
+- **V2 架構原則仍有效**：Mock AI 與 Real AI（LLM Provider）共用同一套 Agent Runtime、Workflow、State。UI 不分支於 Mock/Real。（V3 階段 Real AI 入口暫時從 UI 移除，但 engine/providers 程式碼完整保留，勿刪。）
+- 規格見 `AI Company OS — V3 Specification.md`（權威文件）；V1/V2 為歷史參考。
+- 目前為純前端階段（無後端），資料以 Pinia store + sessionStorage 模擬；部署目標 GitHub Pages（vite `base: '/ai-company-os/'`）。
+
+### V3 UI 要點（改 UI 前必讀）
+
+- **主畫面**：`LandingView.vue`（名稱沿用，實為 Mission Control 主畫面）；V2 dashboard 以 `?view=v2` 保留供開發比對。
+- **聚光燈**：模擬執行中，當事 Agent 高亮、其餘節點壓暗（`companyScene.setSpotlight()`），步驟交接時放出脈衝光環（`pulseAt()`）。資料來源是 `companyStore.currentStepId → activeScenario.steps[].agentId`。
+- **狀態表達不得只靠顏色**：一律「符號 + 文字 + 顏色」三者並用（規格 §11、§37）。事件 tab 的狀態燈：執行中閃爍綠燈、暫停／等待核准黃燈、錯誤紅燈（最後一筆事件 type === 'error'）、完成或待機時不顯示。
+- **鍵盤**：Esc = 關閉 Agent 工作區。**不可攔截 Tab 鍵**——它屬於瀏覽器焦點導航（曾因此破壞 a11y 與自動化測試）。
+- 摺疊按鈕位於 navbar 右側，不可放在面板分頁列（會遮住 Agent 工作區的關閉按鈕）。
 
 ## 技術棧
 
@@ -39,10 +48,13 @@ npx vitest run      # 全部測試；npx vitest run src/__tests__/xxx.test.ts �
 src/
 ├── components/
 │   ├── ui/          # shadcn-vue 生成元件 —— 不手改，由 CLI 管理
-│   ├── common/      # 通用元件（StatusBadge、DemoControlBar…）
-│   └── <domain>/    # 領域元件：agent/ dashboard/ execution/ office/ task/ settings/ layout/
-├── stores/          # Pinia：agents, ai, company, evaluation, execution, persistence, tasks, trace
-├── types/           # 領域型別：agent, agentRuntime, execution, llm, project, task, workflow
+│   ├── common/      # 通用元件（StatusBadge、ProgressBar…）
+│   ├── landing/     # V3 控制台分頁：SimulationTab、OrgTab
+│   ├── three/       # 3D 橋接：CompanyCanvas（場景 wrapper）、AgentWorkspace
+│   └── <domain>/    # 領域元件：agent/ dashboard/ execution/ office/ task/ settings/ layout/（LandingView 主畫面）
+├── three/           # Three.js 場景本體：companyScene.ts（不含任何 Pinia / 業務邏輯）
+├── stores/          # Pinia：agents, ai, company, evaluation, execution, landing, persistence, tasks, trace
+├── types/           # 領域型別：agent, agentRuntime, execution, landing(3D 狀態模型), llm, project, task, workflow
 ├── composables/     # useXxx() composables
 ├── lib/             # utils.ts（cn() 等）
 ├── utils/           # 一般工具函式

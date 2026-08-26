@@ -47,11 +47,10 @@ function reject(): void {
       class="max-w-md"
       :show-close-button="false"
       :interact-outside="(e: Event) => e.preventDefault()"
-      aria-describedby="approval-desc"
     >
       <DialogHeader>
         <DialogTitle>需要人工核准</DialogTitle>
-        <DialogDescription id="approval-desc">
+        <DialogDescription>
           {{ ai.mode === 'mock'
             ? '執行長在專案完成前請求人工核准。按「核准專案」完成整個流程；按「否決」會回到上一個階段（除錯修復），讓 Agent 繼續工作。'
             : 'AI Company 想要繼續執行。請檢閱時間軸上的最新結果後決定是否放行。' }}
