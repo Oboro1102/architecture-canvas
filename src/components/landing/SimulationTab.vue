@@ -3,12 +3,12 @@ import { computed } from 'vue'
 import { useCompanyStore, RUN_STATE_LABEL } from '@/stores/company'
 import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agents'
-import { getEngine } from '@/engine/scenarioEngine'
 import { STATUS_LABEL } from '@/types/agent'
 import ProgressBar from '@/components/common/ProgressBar.vue'
 
 /**
- * 模擬控制分頁 — Start / Pause / Reset、速率調整、進度與 Agent 執行清單。
+ * 模擬分頁 — 資訊呈現（進度、Agent 執行清單）。
+ * 模擬控制（開始／暫停／重置）已移至 navbar 的 SimulationControls。
  */
 const emit = defineEmits<{ 'focus-agent': [id: string] }>()
 
@@ -17,86 +17,20 @@ const tasks = useTaskStore()
 const agentsStore = useAgentStore()
 const agents = computed(() => agentsStore.agents)
 
-const running = computed(() => company.runState === 'running')
 const progress = computed({
   get: () => tasks.overallProgress,
   set: () => {
     /* read-only display */
   },
 })
-
-const speeds = [0.5, 1, 2, 4, 8]
-function setSpeed(v: number): void {
-  company.setSpeed(v)
-}
-
-function start(): void {
-  getEngine().start(company.scenarioId)
-}
-function pauseResume(): void {
-  const e = getEngine()
-  if (company.runState === 'running') e.pause()
-  else if (company.runState === 'paused') e.resume()
-}
-function reset(): void {
-  getEngine().reset()
-}
 </script>
 
 <template>
   <div class="flex h-full flex-col gap-4 overflow-y-auto p-4" data-testid="simulation-panel">
     <div>
-      <h2 class="text-sm font-semibold text-white">模擬控制</h2>
+      <h2 class="text-sm font-semibold text-white">模擬狀態</h2>
       <p class="mt-0.5 font-mono text-xs text-slate-400">{{ company.activeScenario.name }}</p>
     </div>
-
-    <!-- controls -->
-    <div class="flex gap-2">
-      <button
-        v-if="company.runState === 'idle' || company.runState === 'completed'"
-        class="flex-1 rounded-md bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-cyan-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
-        data-testid="start-simulation"
-        @click="start"
-      >
-        ▶ 開始模擬
-      </button>
-      <template v-else>
-        <button
-          class="flex-1 rounded-md border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-800"
-          data-testid="pause-resume"
-          @click="pauseResume"
-        >
-          {{ running ? '⏸ 暫停' : '▶ 繼續' }}
-        </button>
-        <button
-          class="flex-1 rounded-md border border-slate-700 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-800"
-          @click="reset"
-        >
-          ↺ 重置
-        </button>
-      </template>
-    </div>
-
-    <!-- speed control -->
-    <section aria-label="模擬速率">
-      <h3 class="mb-1.5 font-mono text-[10px] tracking-[0.25em] text-slate-500">速率</h3>
-      <div class="flex gap-1" role="group" aria-label="選擇模擬速率">
-        <button
-          v-for="s in speeds"
-          :key="s"
-          class="flex-1 rounded-md border px-1 py-1.5 font-mono text-[11px] transition-colors focus-visible:outline-2 focus-visible:outline-cyan-400"
-          :class="
-            company.speed === s
-              ? 'border-cyan-500 bg-cyan-500/15 text-cyan-300'
-              : 'border-slate-700 text-slate-400 hover:bg-slate-800'
-          "
-          :aria-pressed="company.speed === s"
-          @click="setSpeed(s)"
-        >
-          {{ s }}×
-        </button>
-      </div>
-    </section>
 
     <template v-if="company.runState !== 'idle'">
       <!-- progress -->

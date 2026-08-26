@@ -5,6 +5,7 @@ import { useLandingStore } from '@/stores/landing'
 import { useCompanyStore } from '@/stores/company'
 import { useExecutionStore } from '@/stores/execution'
 import AgentWorkspace from '@/components/three/AgentWorkspace.vue'
+import SimulationControls from '@/components/landing/SimulationControls.vue'
 import ExecutionTimeline from '@/components/execution/ExecutionTimeline.vue'
 import EventDetailDialog from '@/components/execution/EventDetailDialog.vue'
 import ApprovalDialog from '@/components/execution/ApprovalDialog.vue'
@@ -42,9 +43,14 @@ const stateLabel = computed(() => {
   }
   return map[company.runState] ?? company.runState
 })
-const stateDot = computed(() =>
-  company.runState === 'running' ? 'animate-pulse-dot' : '',
-)
+/** navbar 狀態燈：與事件 tab 同一套色彩語言（綠=執行、黃=暫停/等待、紅=錯誤） */
+const stateLight = computed<{ cls: string; blink: boolean }>(() => {
+  if (eventError.value) return { cls: 'bg-red-500', blink: false }
+  if (company.runState === 'running') return { cls: 'bg-emerald-400', blink: true }
+  if (company.runState === 'paused' || company.runState === 'awaiting_approval')
+    return { cls: 'bg-amber-400', blink: false }
+  return { cls: 'bg-slate-500', blink: false }
+})
 
 /** 事件 tab 狀態燈：執行中閃爍綠燈、暫停黃燈、錯誤紅燈、完成後消失 */
 const eventLight = computed<{ show: boolean; cls: string; label: string }>(() => {
@@ -95,10 +101,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           role="status"
           aria-live="polite"
         >
-          <span class="mr-1" :class="stateDot" aria-hidden="true">●</span>{{ stateLabel }}
+          <span
+            class="mr-1.5 inline-block size-2 rounded-full align-middle"
+            :class="[stateLight.cls, stateLight.blink ? 'animate-pulse-dot' : '']"
+            aria-hidden="true"
+          ></span>{{ stateLabel }}
         </span>
       </div>
       <div class="flex items-center gap-3">
+        <SimulationControls />
         <button
           class="rounded-md border border-slate-700 p-2 text-slate-300 transition-colors hover:bg-slate-800 hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-400"
           :aria-label="panelOpen ? '摺疊控制台面板，專注觀看 3D 場景' : '展開控制台面板'"
@@ -129,7 +140,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         <!-- hint -->
         <p
           v-if="!landing.focusedAgentId && company.runState === 'idle'"
-          class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900/80 px-4 py-1.5 font-mono text-xs text-slate-300 backdrop-blur"
+          class="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-full border border-slate-700 bg-slate-900/80 px-4 py-1.5 font-mono text-xs text-slate-300 backdrop-blur"
         >
           點擊節點查看 Agent · 按「開始模擬」讓公司動起來
         </p>

@@ -50,13 +50,14 @@ export const STATUS_VISUAL: Record<
   LandingAgentStatus,
   { color: number; motion: 'static' | 'pulse' | 'flow' | 'dim' | 'burst' | 'error'; emissiveBoost: number }
 > = {
+  // 色彩語言與 UI 狀態燈統一（spec §11）：綠＝執行中、黃＝等待、紅＝錯誤
   idle: { color: 0x8b8fa3, motion: 'static', emissiveBoost: 0.15 },
   thinking: { color: 0xa78bfa, motion: 'pulse', emissiveBoost: 0.6 },
-  working: { color: 0x22d3ee, motion: 'flow', emissiveBoost: 0.8 },
+  working: { color: 0x34d399, motion: 'flow', emissiveBoost: 0.8 },
   waiting: { color: 0xf59e0b, motion: 'dim', emissiveBoost: 0.1 },
-  completed: { color: 0x34d399, motion: 'burst', emissiveBoost: 0.5 },
+  completed: { color: 0xa7f3d0, motion: 'burst', emissiveBoost: 0.5 },
   error: { color: 0xef4444, motion: 'error', emissiveBoost: 0.9 },
-  blocked: { color: 0xf97316, motion: 'dim', emissiveBoost: 0.2 },
+  blocked: { color: 0xfb923c, motion: 'dim', emissiveBoost: 0.2 },
 }
 
 /** A node in the org chart rendered by the 3D scene. */
