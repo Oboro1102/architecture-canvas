@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { STATUS_LABEL, type AgentStatus } from '@/types/agent'
+import { Badge } from '@/components/ui/badge'
 
 const props = defineProps<{ status: AgentStatus }>()
 
@@ -23,12 +24,8 @@ const c = computed(() => config.value[props.status])
 </script>
 
 <template>
-  <span
-    class="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-xs font-medium"
-    :class="c.text"
-    role="status"
-  >
+  <Badge variant="outline" class="gap-1.5 py-0.5" :class="c.text" role="status">
     <span class="size-2 rounded-full" :class="c.dot" aria-hidden="true" />
     {{ STATUS_LABEL[status] }}
-  </span>
+  </Badge>
 </template>

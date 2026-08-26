@@ -9,6 +9,14 @@ import StatusBadge from '@/components/common/StatusBadge.vue'
 import ProgressBar from '@/components/common/ProgressBar.vue'
 import { ROLE_LABEL } from '@/types/agent'
 import type { Agent as AgentT } from '@/types/agent'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const props = defineProps<{ agentId: string }>()
 const emit = defineEmits<{ close: [] }>()
@@ -27,6 +35,10 @@ const currentTask = computed(() =>
 const recentEvents = computed(() =>
   exec.events.filter((e) => e.agentId === props.agentId).slice(-5).reverse(),
 )
+
+function onModeChange(mode: string | number): void {
+  ai.setAgentMode(agent.value.id, mode as 'global' | 'mock' | 'real')
+}
 </script>
 
 <template>
@@ -43,9 +55,14 @@ const recentEvents = computed(() =>
           <p class="text-xs text-muted-foreground">{{ agent.name }} · {{ agent.department }}</p>
         </div>
       </div>
-      <button class="icon-btn" aria-label="關閉詳細資訊面板" @click="emit('close')">
-        <X class="size-4" aria-hidden="true" />
-      </button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="關閉詳細資訊面板"
+        @click="emit('close')"
+      >
+        <X aria-hidden="true" />
+      </Button>
     </header>
 
     <div>
@@ -68,16 +85,22 @@ const recentEvents = computed(() =>
     <div>
       <h3 class="detail-label">執行模式（§37 Per-Agent Mode）</h3>
       <div class="flex items-center gap-2">
-        <select
-          :value="ai.agentModes[agent.id] ?? 'global'"
-          class="rounded-md border border-border bg-card px-2 py-1 text-xs"
-          :aria-label="`${ROLE_LABEL[agent.role]} 的執行模式`"
-          @change="ai.setAgentMode(agent.id, ($event.target as HTMLSelectElement).value as 'global' | 'mock' | 'real')"
+        <Select
+          :model-value="ai.agentModes[agent.id] ?? 'global'"
+          @update:model-value="onModeChange($event as string)"
         >
-          <option value="global">跟隨全域</option>
-          <option value="mock">模擬</option>
-          <option value="real">Real AI</option>
-        </select>
+          <SelectTrigger
+            size="sm"
+            :aria-label="`${ROLE_LABEL[agent.role]} 的執行模式`"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="global">跟隨全域</SelectItem>
+            <SelectItem value="mock">模擬</SelectItem>
+            <SelectItem value="real">Real AI</SelectItem>
+          </SelectContent>
+        </Select>
         <span class="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" role="status">
           實際：{{ ai.effectiveModeFor(agent.id) === 'real' ? 'REAL AI' : 'SIMULATION' }}
         </span>

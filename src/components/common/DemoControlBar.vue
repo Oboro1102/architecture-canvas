@@ -4,6 +4,8 @@ import { useTaskStore } from '@/stores/tasks'
 import { useAgentStore } from '@/stores/agents'
 import { getEngine } from '@/engine/scenarioEngine'
 import ProgressBar from '@/components/common/ProgressBar.vue'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Play, Pause, RotateCcw, Gauge } from '@lucide/vue'
 
 const company = useCompanyStore()
@@ -30,52 +32,45 @@ function reset(): void {
     aria-label="示範控制列"
     class="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2"
   >
-    <button
+    <Button
       v-if="company.runState === 'idle' || company.runState === 'completed'"
-      class="btn-primary"
       :disabled="!company.activeScenario.available"
       @click="start"
     >
       <Play class="size-4" aria-hidden="true" />
       開始示範
-    </button>
-    <button v-else class="btn-secondary" @click="pauseResume">
+    </Button>
+    <Button v-else variant="outline" @click="pauseResume">
       <Pause v-if="company.runState === 'running'" class="size-4" aria-hidden="true" />
       <Play v-else class="size-4" aria-hidden="true" />
       {{ company.runState === 'running' ? '暫停' : '繼續' }}
-    </button>
+    </Button>
 
-    <button class="btn-secondary" :disabled="company.runState === 'idle'" @click="reset">
+    <Button variant="outline" :disabled="company.runState === 'idle'" @click="reset">
       <RotateCcw class="size-4" aria-hidden="true" />
       重設
-    </button>
+    </Button>
 
     <!-- 執行狀態 -->
-    <span
-      v-if="company.runState !== 'idle'"
-      class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-      role="status"
-    >
+    <Badge v-if="company.runState !== 'idle'" variant="secondary" role="status">
       {{ RUN_STATE_LABEL[company.runState] }}
-    </span>
+    </Badge>
 
     <div class="ml-auto flex items-center gap-1.5 text-xs">
       <Gauge class="size-4 text-muted-foreground" aria-hidden="true" />
       <span class="text-muted-foreground">速度</span>
-      <button
+      <Button
         v-for="s in speeds"
         :key="s"
-        class="rounded-md px-2 py-1 font-mono transition-colors"
-        :class="
-          company.speed === s
-            ? 'bg-accent font-semibold text-accent-foreground'
-            : 'text-muted-foreground hover:bg-muted'
-        "
+        size="xs"
+        font-mono
+        :variant="company.speed === s ? 'default' : 'ghost'"
+        :class="company.speed !== s && 'font-mono text-muted-foreground'"
         :aria-pressed="company.speed === s"
         @click="company.setSpeed(s)"
       >
         {{ s }}x
-      </button>
+      </Button>
     </div>
 
     <div v-if="company.runState !== 'idle'" class="w-full sm:w-auto sm:min-w-48">

@@ -8,6 +8,14 @@ import DemoControlBar from '@/components/common/DemoControlBar.vue'
 import ScenarioSelector from '@/components/common/ScenarioSelector.vue'
 import ProjectLauncher from '@/components/common/ProjectLauncher.vue'
 import AISettingsDialog from '@/components/settings/AISettingsDialog.vue'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export type TabKey = 'dashboard' | 'office' | 'tasks' | 'workflow' | 'evaluation'
 
@@ -28,11 +36,9 @@ const tabs: Array<{ key: TabKey; label: string; icon: typeof LayoutDashboard }> 
 const activeTab = defineModel<TabKey>({ default: 'dashboard' })
 
 /** §33 — selecting Real without a key opens Settings instead. */
-function onModeSelect(event: Event): void {
-  const select = event.target as HTMLSelectElement | null
-  const next = (select?.value ?? 'mock') as 'mock' | 'real'
+function onModeSelect(mode: string): void {
+  const next = (mode || 'mock') as 'mock' | 'real'
   if (!ai.switchMode(next)) {
-    if (select) select.value = ai.mode
     settingsOpen.value = true
   }
 }
@@ -48,41 +54,51 @@ function onModeSelect(event: Event): void {
         · {{ company.projectName || '目前沒有執行中的專案' }}
       </span>
 
-      <button
-        class="btn-secondary ml-auto !py-1 lg:hidden"
+      <Button
+        variant="outline"
+        size="sm"
+        class="ml-auto lg:hidden"
         :aria-expanded="mobileOpen"
         aria-controls="scenario-sheet"
         @click="mobileOpen = !mobileOpen"
       >
         選擇情境 ▼
-      </button>
+      </Button>
 
       <!-- AI Mode indicator + switch (spec §32/§33 — text label, never color-only) -->
       <div class="ml-auto flex items-center gap-2 max-lg:ml-2">
-        <label class="flex items-center gap-2 text-xs">
+        <div class="flex items-center gap-2 text-xs">
           <span class="text-muted-foreground">AI 模式</span>
-          <select
-            class="rounded-md border border-border bg-card px-2 py-1 text-xs font-medium"
-            :value="ai.mode"
-            aria-label="切換 AI 模式"
-            @change="onModeSelect($event)"
+          <Select
+            :model-value="ai.mode"
+            @update:model-value="onModeSelect($event as string)"
           >
-            <option value="mock">{{ AIMODE_LABEL.mock }}</option>
-            <option value="real" :disabled="!ai.realReady">
-              {{ ai.realReady ? AIMODE_LABEL.real : '● Real AI（需設定 API Key）' }}
-            </option>
-          </select>
-        </label>
+            <SelectTrigger size="sm" aria-label="切換 AI 模式" class="font-medium">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mock">{{ AIMODE_LABEL.mock }}</SelectItem>
+              <SelectItem value="real" :disabled="!ai.realReady">
+                {{ ai.realReady ? AIMODE_LABEL.real : '● Real AI（需設定 API Key）' }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <span
-          class="hidden rounded-full px-2 py-0.5 text-[10px] font-medium tracking-wide sm:inline-block"
-          :class="ai.mode === 'real' ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground'"
+          class="hidden rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium tracking-wide sm:inline-block"
+          :class="ai.mode === 'real' && 'bg-accent/15 text-accent'"
           role="status"
         >
           {{ ai.mode === 'real' ? 'REAL AI' : 'SIMULATION' }}
         </span>
-        <button class="icon-btn" aria-label="開啟 AI Provider 設定" @click="settingsOpen = true">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="開啟 AI Provider 設定"
+          @click="settingsOpen = true"
+        >
           <Settings class="size-4" aria-hidden="true" />
-        </button>
+        </Button>
       </div>
     </header>
 
@@ -102,10 +118,12 @@ function onModeSelect(event: Event): void {
       class="flex overflow-x-auto border-b border-border bg-card px-2"
       aria-label="主要區塊"
     >
-      <button
+      <Button
         v-for="t in tabs"
         :key="t.key"
-        class="shrink-0 border-b-2 px-3 py-2 text-xs font-medium transition-colors focus-visible:focus-ring sm:text-sm"
+        variant="ghost"
+        size="sm"
+        class="shrink-0 rounded-b-none border-b-2 px-3 py-2 text-xs sm:text-sm"
         :class="
           activeTab === t.key
             ? 'border-accent text-accent'
@@ -115,7 +133,7 @@ function onModeSelect(event: Event): void {
         @click="activeTab = t.key"
       >
         {{ t.label }}
-      </button>
+      </Button>
     </nav>
 
     <div class="flex min-h-0 flex-1">
@@ -163,12 +181,17 @@ function onModeSelect(event: Event): void {
     <Transition name="modal">
       <div
         v-if="ai.modeNotice"
-        class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm shadow-xl"
+        class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-border bg-popover px-4 py-2.5 text-sm text-popover-foreground shadow-xl"
         role="status"
       >
         <div class="flex items-center gap-3">
           <span>{{ ai.modeNotice }}</span>
-          <button class="icon-btn !p-1" aria-label="關閉提示" @click="ai.dismissNotice()">✕</button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="關閉提示"
+            @click="ai.dismissNotice()"
+          >✕</Button>
         </div>
       </div>
     </Transition>

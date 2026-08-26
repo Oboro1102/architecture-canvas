@@ -1,11 +1,29 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useCompanyStore } from '@/stores/company'
 import { useAIStore } from '@/stores/ai'
 import { getEngine } from '@/engine/scenarioEngine'
 import { resolveRealApproval } from '@/engine/realWorkflowEngine'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 const company = useCompanyStore()
 const ai = useAIStore()
+
+/** shadcn Dialog is controlled — open while awaiting approval. */
+const open = computed({
+  get: () => company.runState === 'awaiting_approval',
+  set: () => {
+    /* 不允許點背景關閉 — 必須明確核准或否決 */
+  },
+})
 
 function approve(): void {
   if (ai.mode === 'real') {
@@ -24,32 +42,27 @@ function reject(): void {
 </script>
 
 <template>
-  <Transition name="modal">
-    <div
-      v-if="company.runState === 'awaiting_approval'"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="approval-title"
+  <Dialog v-model:open="open">
+    <DialogContent
+      class="max-w-md"
+      :show-close-button="false"
+      :interact-outside="(e: Event) => e.preventDefault()"
+      aria-describedby="approval-desc"
     >
-      <div class="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-xl">
-        <h2 id="approval-title" class="text-base font-semibold">需要人工核准</h2>
-        <p v-if="ai.mode === 'mock'" class="mt-2 text-sm text-muted-foreground">
-          執行長在專案完成前請求人工核准。
-        </p>
-        <p v-if="ai.mode === 'mock'" class="mt-1 text-sm text-muted-foreground">
-          按「核准專案」完成整個流程；按「否決」會回到上一個階段（除錯修復），讓 Agent 繼續工作。
-        </p>
-        <p v-else class="mt-2 text-sm text-muted-foreground">
-          AI Company 想要繼續執行。請檢閱時間軸上的最新結果後決定是否放行。
-        </p>
-        <div class="mt-5 flex justify-end gap-3">
-          <button class="btn-secondary" @click="reject">否決</button>
-          <button class="btn-primary" @click="approve">
-            {{ ai.mode === 'real' ? '核准繼續' : '核准專案' }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </Transition>
+      <DialogHeader>
+        <DialogTitle>需要人工核准</DialogTitle>
+        <DialogDescription id="approval-desc">
+          {{ ai.mode === 'mock'
+            ? '執行長在專案完成前請求人工核准。按「核准專案」完成整個流程；按「否決」會回到上一個階段（除錯修復），讓 Agent 繼續工作。'
+            : 'AI Company 想要繼續執行。請檢閱時間軸上的最新結果後決定是否放行。' }}
+        </DialogDescription>
+      </DialogHeader>
+      <DialogFooter>
+        <Button variant="outline" @click="reject">否決</Button>
+        <Button @click="approve">
+          {{ ai.mode === 'real' ? '核准繼續' : '核准專案' }}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
