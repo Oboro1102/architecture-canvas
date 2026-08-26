@@ -65,6 +65,18 @@ const typeIcon: Record<string, string> = {
             </span>
           </span>
           <span class="mt-0.5 block truncate text-muted-foreground">{{ e.title }}</span>
+          <!-- §32/§35 — mode provenance, never color-only -->
+          <span
+            v-if="e.executionMode"
+            class="mt-0.5 inline-block rounded px-1 text-[10px] font-medium"
+            :class="
+              e.executionMode === 'real'
+                ? 'bg-accent/15 text-accent'
+                : 'bg-muted text-muted-foreground'
+            "
+          >
+            {{ e.executionMode === 'real' ? '[Real AI]' : '[Simulation]' }}
+          </span>
         </button>
       </li>
     </TransitionGroup>

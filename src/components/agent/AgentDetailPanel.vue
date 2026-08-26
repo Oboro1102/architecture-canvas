@@ -4,6 +4,7 @@ import { X } from '@lucide/vue'
 import { useAgentStore } from '@/stores/agents'
 import { useTaskStore } from '@/stores/tasks'
 import { useExecutionStore } from '@/stores/execution'
+import { useAIStore } from '@/stores/ai'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import ProgressBar from '@/components/common/ProgressBar.vue'
 import { ROLE_LABEL } from '@/types/agent'
@@ -15,6 +16,7 @@ const emit = defineEmits<{ close: [] }>()
 const agents = useAgentStore()
 const tasks = useTaskStore()
 const exec = useExecutionStore()
+const ai = useAIStore()
 
 const agent = computed<AgentT>(
   () => agents.agents.find((a) => a.id === props.agentId)!,
@@ -60,6 +62,25 @@ const recentEvents = computed(() =>
       <p v-else class="text-sm text-muted-foreground">目前沒有執行中的任務。</p>
       <div v-if="currentTask && currentTask.status !== 'completed'" class="mt-2">
         <ProgressBar :model-value="currentTask.progress" show-value label="任務進度" />
+      </div>
+    </div>
+
+    <div>
+      <h3 class="detail-label">執行模式（§37 Per-Agent Mode）</h3>
+      <div class="flex items-center gap-2">
+        <select
+          :value="ai.agentModes[agent.id] ?? 'global'"
+          class="rounded-md border border-border bg-card px-2 py-1 text-xs"
+          :aria-label="`${ROLE_LABEL[agent.role]} 的執行模式`"
+          @change="ai.setAgentMode(agent.id, ($event.target as HTMLSelectElement).value as 'global' | 'mock' | 'real')"
+        >
+          <option value="global">跟隨全域</option>
+          <option value="mock">模擬</option>
+          <option value="real">Real AI</option>
+        </select>
+        <span class="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" role="status">
+          實際：{{ ai.effectiveModeFor(agent.id) === 'real' ? 'REAL AI' : 'SIMULATION' }}
+        </span>
       </div>
     </div>
 

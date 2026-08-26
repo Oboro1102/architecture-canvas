@@ -29,5 +29,7 @@ export interface ExecutionEvent {
   type: ExecutionEventType
   title: string
   description: string
+  /** Spec §35 — which engine produced this event. */
+  executionMode?: 'mock' | 'real'
   metadata?: Record<string, unknown>
 }

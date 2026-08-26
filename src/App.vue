@@ -2,7 +2,9 @@
 import { ref, computed } from 'vue'
 import { useCompanyStore } from '@/stores/company'
 import { useTaskStore } from '@/stores/tasks'
-import { useExecutionStore } from '@/stores/execution'
+import { useTraceStore } from '@/stores/trace'
+import { useEvaluationStore } from '@/stores/evaluation'
+import { useAIStore } from '@/stores/ai'
 import { ROLE_LABEL } from '@/types/agent'
 import type { ExecutionEvent } from '@/types/execution'
 import type { Agent as AgentT } from '@/types/agent'
@@ -19,7 +21,9 @@ import EventDetailDialog from '@/components/execution/EventDetailDialog.vue'
 
 const company = useCompanyStore()
 const tasks = useTaskStore()
-const exec = useExecutionStore()
+const traceStore = useTraceStore()
+const evaluation = useEvaluationStore()
+const ai = useAIStore()
 
 const tab = ref<TabKey>('dashboard')
 const selectedAgent = ref<AgentT['id'] | ''>('')
@@ -29,25 +33,35 @@ function openAgent(id: string): void {
   selectedAgent.value = id
 }
 
-// ── 評估面板（模擬資料，已明確標示）──────────────
-const evalData = computed(() => {
-  const interventions = exec.events.filter((e) => e.type === 'approval_required').length || 1
-  const failed = tasks.bugs.filter((b) => !b.resolved).length
-  return {
-    taskSuccess: 92,
-    taskCompletion: tasks.tasks.length
-      ? Math.round((tasks.completedCount / tasks.tasks.length) * 100)
-      : 89,
-    workflowSuccess: 94,
-    avgTaskTime: '12.4 秒',
-    failedTasks: failed,
-    humanInterventions: interventions,
-  }
-})
-
 const currentStepIdx = computed(() =>
   company.activeScenario.steps.findIndex((s) => s.id === company.currentStepId),
 )
+
+// Phase 9 — keep evaluation store in sync with the trace log.
+import { watch } from 'vue'
+watch(
+  () => traceStore.traces,
+  (t) => evaluation.syncFrom([...t]),
+  { deep: true, immediate: true },
+)
+
+/** §56 — real AI stats; null when nothing recorded yet. */
+const perf = computed(() => ({
+  total: evaluation.total,
+  successRate:
+    evaluation.successRate === null ? 'N/A' : `${evaluation.successRate}%`,
+  avgDuration:
+    evaluation.averageDurationSec === null
+      ? 'N/A'
+      : `${evaluation.averageDurationSec.toFixed(1)} 秒`,
+  avgToolCalls:
+    evaluation.averageToolCalls === null
+      ? 'N/A'
+      : evaluation.averageToolCalls.toFixed(1),
+  totalTokens:
+    evaluation.totalTokens === null ? 'Unavailable' : evaluation.totalTokens.toLocaleString(),
+  retries: evaluation.totalRetries,
+}))
 </script>
 
 <template>
@@ -108,27 +122,45 @@ const currentStepIdx = computed(() =>
         </ol>
       </section>
 
-      <!-- 評估面板 -->
-      <section v-else-if="activeTab === 'evaluation'" class="card p-5" aria-label="Agent 效能評估">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-semibold">Agent 效能評估</h3>
-          <span
-            class="rounded-full bg-muted px-2 py-0.5 text-[10px] tracking-wide text-muted-foreground"
-          >
-            ※ 模擬資料，非真實 AI 評估
-          </span>
+      <!-- 評估面板（Phase 9 — 真實 AI 執行統計 §55/56） -->
+      <section v-else-if="activeTab === 'evaluation'" class="space-y-6" aria-label="Agent 效能評估">
+        <!-- 真實 AI 效能 -->
+        <div class="card p-5">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold">AI Performance（真實執行）</h3>
+            <span
+              class="rounded-full px-2 py-0.5 text-[10px] tracking-wide"
+              :class="
+                ai.mode === 'real'
+                  ? 'bg-accent/15 text-accent'
+                  : 'bg-muted text-muted-foreground'
+              "
+            >
+              {{ ai.mode === 'real' ? 'REAL AI' : 'SIMULATION' }}
+            </span>
+          </div>
+          <p v-if="perf.total === 0" class="mt-3 text-xs text-muted-foreground">
+            尚無真實 LLM 執行紀錄。使用 Real AI 模式執行專案後，這裡會顯示成功率、耗時與 Token 用量。
+          </p>
+          <dl v-else class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
+            <div><dt class="stat-label">總執行次數</dt><dd class="stat-value">{{ perf.total }}</dd></div>
+            <div><dt class="stat-label">成功率</dt><dd class="stat-value">{{ perf.successRate }}</dd></div>
+            <div><dt class="stat-label">平均執行時間</dt><dd class="stat-value font-mono">{{ perf.avgDuration }}</dd></div>
+            <div><dt class="stat-label">平均工具呼叫</dt><dd class="stat-value">{{ perf.avgToolCalls }}</dd></div>
+            <div><dt class="stat-label">重試次數</dt><dd class="stat-value">{{ perf.retries }}</dd></div>
+            <div><dt class="stat-label">Token Usage</dt><dd class="stat-value font-mono">{{ perf.totalTokens }}</dd></div>
+          </dl>
         </div>
-        <dl class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
-          <div><dt class="stat-label">任務成功率</dt><dd class="stat-value">{{ evalData.taskSuccess }}%</dd></div>
-          <div><dt class="stat-label">任務完成率</dt><dd class="stat-value">{{ evalData.taskCompletion }}%</dd></div>
-          <div><dt class="stat-label">流程成功率</dt><dd class="stat-value">{{ evalData.workflowSuccess }}%</dd></div>
-          <div><dt class="stat-label">平均任務時間</dt><dd class="stat-value font-mono">{{ evalData.avgTaskTime }}</dd></div>
-          <div><dt class="stat-label">失敗任務數</dt><dd class="stat-value">{{ evalData.failedTasks }}</dd></div>
-          <div><dt class="stat-label">人工介入次數</dt><dd class="stat-value">{{ evalData.humanInterventions }}</dd></div>
-        </dl>
-        <p class="mt-4 text-xs text-muted-foreground">
-          這些數值為模擬資料，不代表真實 AI 評估結果。
-        </p>
+
+        <!-- 任務面統計（來自 domain store，非偽造） -->
+        <div class="card p-5">
+          <h3 class="text-sm font-semibold">任務統計</h3>
+          <dl class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-3">
+            <div><dt class="stat-label">任務完成率</dt><dd class="stat-value">{{ tasks.tasks.length ? Math.round((tasks.completedCount / tasks.tasks.length) * 100) : 0 }}%</dd></div>
+            <div><dt class="stat-label">已完成任務</dt><dd class="stat-value">{{ tasks.completedCount }} / {{ tasks.tasks.length }}</dd></div>
+            <div><dt class="stat-label">未解 Bug</dt><dd class="stat-value">{{ tasks.bugs.filter((b) => !b.resolved).length }}</dd></div>
+          </dl>
+        </div>
       </section>
     </template>
 
