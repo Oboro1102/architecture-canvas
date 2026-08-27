@@ -1,32 +1,30 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Download, Grid3X3, Library, Redo2, Save, Undo2, ZoomIn, ZoomOut } from '@lucide/vue'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { computed, onBeforeUnmount, ref } from 'vue'
+import { Download, Upload, Grid3X3, Library, Plus, ZoomIn, ZoomOut, Maximize2 } from '@lucide/vue'
 import ArchitectureCanvas from '@/components/architecture/ArchitectureCanvas.vue'
 import FloatingInspector from '@/components/architecture/FloatingInspector.vue'
-import { NODE_GROUPS, NODE_LABELS, type NodeType } from '@/types/architecture'
+import { NODE_GROUPS, NODE_LABELS, TEMPLATE_LABELS, buildTemplate, type NodeType } from '@/types/architecture'
 import { useArchitectureStore } from '@/stores/architecture'
+import { useConfirm } from '@/composables/useConfirm'
+import Tooltip from '@/components/common/AppTooltip.vue'
 
 const store = useArchitectureStore()
+const { confirm } = useConfirm()
 const showLibrary = ref(false)
-const template = ref('')
+const showTemplates = ref(false)
+const templateMenu = ref<HTMLElement | null>(null)
+
+function onTemplateClickOutside(e: MouseEvent) {
+  if (templateMenu.value && !templateMenu.value.contains(e.target as Node)) {
+    showTemplates.value = false
+  }
+}
+window.addEventListener('click', onTemplateClickOutside)
+onBeforeUnmount(() => window.removeEventListener('click', onTemplateClickOutside))
 
 const selectedNode = computed(
   () => store.current.nodes.find((n) => n.id === store.selectedId) ?? null,
 )
-
-const TEMPLATE_TYPES: Record<string, NodeType[]> = {
-  三層式: ['user', 'frontend', 'backend', 'database'],
-  微服務: ['client', 'gateway', 'service', 'service', 'service', 'database'],
-  事件驅動: ['client', 'message-broker', 'worker', 'worker', 'database'],
-  無伺服器: ['client', 'gateway', 'backend', 'database', 'storage'],
-}
 
 function add(type: NodeType) {
   // Stagger new nodes so they don't stack perfectly on the same spot.
@@ -36,15 +34,13 @@ function add(type: NodeType) {
 
 function applyTemplate(value: unknown) {
   const v = value as string | null | undefined
-  if (!v || !TEMPLATE_TYPES[v]) {
-    template.value = ''
+  const built = v ? buildTemplate(v) : null
+  if (!built) {
     return
   }
-  store.newArchitecture(v)
-  TEMPLATE_TYPES[v].forEach((t, i) =>
-    store.addNode(t, 180 + (i % 4) * 210, 180 + Math.floor(i / 4) * 150),
-  )
-  template.value = ''
+  store.replace(built)
+  store.select(null)
+  store.fit()
 }
 
 function exportJson() {
@@ -59,10 +55,46 @@ function exportJson() {
   URL.revokeObjectURL(a.href)
 }
 
-// Drag-and-drop from the floating component library onto the canvas.
+const fileInput = ref<HTMLInputElement | null>(null)
+function triggerImport() {
+  fileInput.value?.click()
+}
+function onImportFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = async () => {
+    const ok = store.importJson(String(reader.result))
+    if (!ok) {
+      await confirm({ title: '匯入失敗', description: '檔案不是有效的架構 JSON。', confirmText: '確定', cancelText: '關閉' })
+    } else {
+      store.fit()
+    }
+  }
+  reader.readAsText(file)
+  input.value = '' // allow re-importing the same file
+}
+
 function onDragStart(type: NodeType, e: DragEvent) {
   e.dataTransfer?.setData('application/vueflow', type)
   if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
+}
+// Drag a "group" container from the library onto the canvas.
+function onDragStartGroup(e: DragEvent) {
+  e.dataTransfer?.setData('application/vueflow-group', 'group')
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
+}
+
+// Grouping: drop a container onto the canvas center (or use the click short-
+// cut). If a node is currently selected, it gets dropped into the new group.
+function createGroup(x?: number, y?: number) {
+  const px = x ?? 160 + store.current.nodes.length * 8
+  const py = y ?? 120 + store.current.nodes.length * 8
+  const id = store.addContainer(px, py)
+  if (store.selectedId && store.current.nodes.some((n) => n.id === store.selectedId)) {
+    store.addNodeToContainer(store.selectedId, id)
+  }
 }
 </script>
 
@@ -89,30 +121,60 @@ function onDragStart(type: NodeType, e: DragEvent) {
       </div>
 
       <div class="flex items-center gap-2">
-        <Select v-model="template" @update:modelValue="applyTemplate">
-          <SelectTrigger class="h-8 w-[140px] text-xs" aria-label="選擇範本">
-            <SelectValue placeholder="選擇範本…" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="三層式">三層式</SelectItem>
-            <SelectItem value="微服務">微服務</SelectItem>
-            <SelectItem value="事件驅動">事件驅動</SelectItem>
-            <SelectItem value="無伺服器">無伺服器</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <div class="flex items-center gap-1">
-          <button class="icon-btn" aria-label="復原" :disabled="!store.canUndo" @click="store.undo">
-            <Undo2 class="size-4" />
+      <div ref="templateMenu" class="relative inline-flex">
+        <Tooltip text="選擇範本">
+          <button
+            class="icon-btn"
+            :class="{ 'text-cyan-300 hover:text-cyan-200': showTemplates }"
+            aria-label="選擇範本"
+            aria-haspopup="menu"
+            :aria-expanded="showTemplates"
+            @click="showTemplates = !showTemplates"
+          >
+            <Grid3X3 class="size-4" />
           </button>
-          <button class="icon-btn" aria-label="重做" :disabled="!store.canRedo" @click="store.redo">
-            <Redo2 class="size-4" />
-          </button>
-        </div>
+        </Tooltip>
 
-        <button class="btn-secondary" @click="store.newArchitecture()">新增</button>
-        <button class="btn-secondary" @click="store.save"><Save class="size-4" /> 儲存</button>
-        <button class="btn-primary" @click="exportJson"><Download class="size-4" /> 匯出</button>
+        <Transition
+          enter-active-class="transition duration-150 ease-out"
+          enter-from-class="opacity-0 scale-95"
+          leave-active-class="transition duration-120 ease-in"
+          leave-to-class="opacity-0 scale-95"
+        >
+          <div
+            v-if="showTemplates"
+            class="absolute right-0 top-full z-[60] mt-2 w-40 rounded-xl border border-slate-700 bg-[#0b1220]/95 p-1.5 shadow-2xl backdrop-blur"
+            role="menu"
+          >
+            <button
+              v-for="t in TEMPLATE_LABELS"
+              :key="t"
+              class="flex w-full items-center rounded-md px-3 py-2 text-left text-xs text-slate-300 transition-colors hover:bg-cyan-400/10 hover:text-cyan-200"
+              role="menuitem"
+              @click="applyTemplate(t); showTemplates = false"
+            >
+              {{ t }}
+            </button>
+          </div>
+        </Transition>
+      </div>
+
+        <Tooltip text="新增">
+          <button class="icon-btn" aria-label="新增" @click="store.newArchitecture()">
+            <Plus class="size-4" />
+          </button>
+        </Tooltip>
+        <Tooltip text="匯出（儲存為 JSON）">
+          <button class="icon-btn text-cyan-300 hover:text-cyan-200" aria-label="匯出" @click="exportJson">
+            <Upload class="size-4" />
+          </button>
+        </Tooltip>
+        <Tooltip text="匯入 JSON">
+          <button class="icon-btn" aria-label="匯入" @click="triggerImport">
+            <Download class="size-4" />
+          </button>
+        </Tooltip>
+        <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="onImportFile" />
       </div>
     </header>
 
@@ -160,6 +222,24 @@ function onDragStart(type: NodeType, e: DragEvent) {
               {{ NODE_LABELS[type] }}
             </button>
           </div>
+
+          <!-- Group container: a canvas element (NOT a canvas operation) so it
+               lives alongside the other building blocks in the library. -->
+          <div class="mb-1">
+            <h3 class="mb-2 text-[10px] tracking-widest text-slate-500">組織</h3>
+            <button
+              class="mb-1 flex w-full cursor-grab items-center gap-3 rounded-md px-2 py-2 text-left text-xs text-slate-300 transition-colors hover:bg-cyan-400/10 hover:text-cyan-200 active:cursor-grabbing"
+              draggable="true"
+              @click="createGroup()"
+              @dragstart="onDragStartGroup($event)"
+            >
+              <span
+                class="grid size-6 place-items-center rounded border border-dashed border-slate-600 text-slate-300"
+                >▢</span
+              >
+              群組
+            </button>
+          </div>
         </div>
       </Transition>
     </div>
@@ -169,19 +249,36 @@ function onDragStart(type: NodeType, e: DragEvent) {
       class="absolute bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg border border-slate-700 bg-[#0d1424]/90 px-3 py-2 text-xs text-slate-400 shadow-lg backdrop-blur"
     >
       <button
-        class="hover:text-white"
+        class="inline-flex items-center gap-1 hover:text-white"
         aria-label="切換格線"
         @click="store.current.settings.grid = !store.current.settings.grid"
       >
-        <Grid3X3 class="inline size-3" /> 格線
+        <Grid3X3 class="size-3" /> 格線
       </button>
       <span>·</span>
-      <button class="hover:text-white" aria-label="縮小" @click="store.zoomOut()">
-        <ZoomOut class="inline size-3" />
+      <button
+        class="inline-flex items-center gap-1 hover:text-white"
+        aria-label="縮小"
+        @click="store.zoomOut()"
+      >
+        <ZoomOut class="size-3" />
       </button>
       <span>{{ Math.round(store.current.viewport.zoom * 100) }}%</span>
-      <button class="hover:text-white" aria-label="放大" @click="store.zoomIn()">
-        <ZoomIn class="inline size-3" />
+      <button
+        class="inline-flex items-center gap-1 hover:text-white"
+        aria-label="放大"
+        @click="store.zoomIn()"
+      >
+        <ZoomIn class="size-3" />
+      </button>
+      <span>·</span>
+      <button
+        class="inline-flex items-center gap-1 hover:text-white"
+        aria-label="符合畫布"
+        title="符合畫布"
+        @click="store.fit()"
+      >
+        <Maximize2 class="size-3" /> 符合
       </button>
     </div>
 

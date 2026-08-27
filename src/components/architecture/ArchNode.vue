@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { type NodeProps } from '@vue-flow/core'
+import { Handle, Position, ConnectionMode, type NodeProps } from '@vue-flow/core'
 
 const props = defineProps<NodeProps>()
 const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
@@ -28,6 +28,37 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
     <div v-if="props.data?.technology" class="arch-node__tech">
       {{ (props.data?.technology as string) }}
     </div>
+
+    <!-- Connection handles. Loose mode lets any handle act as source or target,
+         so the user can drag a line from whichever side is convenient. -->
+    <Handle
+      type="target"
+      :position="Position.Left"
+      :connection-mode="ConnectionMode.Loose"
+      class="arch-handle"
+      :style="{ background: accent }"
+    />
+    <Handle
+      type="source"
+      :position="Position.Right"
+      :connection-mode="ConnectionMode.Loose"
+      class="arch-handle"
+      :style="{ background: accent }"
+    />
+    <Handle
+      type="target"
+      :position="Position.Top"
+      :connection-mode="ConnectionMode.Loose"
+      class="arch-handle"
+      :style="{ background: accent }"
+    />
+    <Handle
+      type="source"
+      :position="Position.Bottom"
+      :connection-mode="ConnectionMode.Loose"
+      class="arch-handle"
+      :style="{ background: accent }"
+    />
   </div>
 </template>
 
@@ -81,5 +112,19 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
 .arch-node__tech {
   font-size: 11px;
   color: #38bdf8;
+}
+/* Connection handles: hidden until the node is hovered/selected, then they
+   fade in as small cyan dots on each side. */
+.arch-handle {
+  width: 9px;
+  height: 9px;
+  border: 2px solid #0b1220;
+  border-radius: 9999px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.arch-node:hover .arch-handle,
+.arch-node.is-selected .arch-handle {
+  opacity: 1;
 }
 </style>

@@ -1,30 +1,44 @@
 <script setup lang="ts">
-import { computed, ref, watch, markRaw } from 'vue'
-import { VueFlow, useVueFlow, MarkerType, type Node, type Edge, type MouseTouchEvent } from '@vue-flow/core'
+import { computed, ref, watch, markRaw, onBeforeUnmount } from 'vue'
+import { VueFlow, useVueFlow, MarkerType, ConnectionMode, type Node, type Edge, type Connection, type MouseTouchEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import ArchNode from './ArchNode.vue'
+import ArchGroupNode from './ArchGroupNode.vue'
 import { useArchitectureStore } from '@/stores/architecture'
-import { NODE_LABELS, accentFor, type NodeType } from '@/types/architecture'
+import { NODE_LABELS, accentFor, type NodeType, type ArchitectureContainer, type ArchitectureNode } from '@/types/architecture'
 import { useNodeScreenRect } from '@/composables/useNodeScreenRect'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { setRect } = useNodeScreenRect()
 
 const store = useArchitectureStore()
+const { confirm } = useConfirm()
 const {
   setNodes,
   setEdges,
   screenToFlowCoordinate,
   zoomTo,
+  fitView,
+  onNodeDragStart,
+  onNodeDrag,
   onNodeDragStop,
+  findNode,
+  updateNode,
   onNodeClick,
   onNodeMouseEnter,
   onNodeMouseLeave,
   onPaneClick,
+  onConnect,
 } = useVueFlow()
 
-const nodeTypes = markRaw({ arch: ArchNode })
+const nodeTypes = markRaw({ arch: ArchNode, group: ArchGroupNode })
 
-// --- Interaction state ---------------------------------------------------
+// All positions are stored as ABSOLUTE canvas coordinates. Group membership is
+// tracked via `containerId` only (no parentNode / coordinate conversion), so a
+// group's children render at their absolute spots. When a group is dragged we
+// manually translate its children by the same delta (see onNodeDrag below).
+const NODE_W = 150
+const NODE_H = 82
 // `pulseEdges` holds the ids of connections that should currently play the
 // "directional flow pulse" (archify-style source -> target signal).
 const pulseEdges = ref<Set<string>>(new Set())
@@ -32,8 +46,26 @@ const pulseEdges = ref<Set<string>>(new Set())
 // Intent-Trace highlight (restrained, only on fine-pointer hover).
 const hoverId = ref<string | null>(null)
 
-const vfNodes = computed<Node[]>(() =>
-  store.current.nodes.map((n) => ({
+// Build the node list. Regular architecture nodes become `arch` type; containers
+// become `group` type (Vue Flow draggable groups). All positions are absolute.
+const vfNodes = computed<Node[]>(() => {
+  const groups: Node[] = store.current.containers.map((c) => ({
+    id: c.id,
+    type: 'group',
+    position: { x: c.position.x, y: c.position.y },
+    selected: c.id === store.selectedId,
+    style: {
+      width: `${c.size.width}px`,
+      height: `${c.size.height}px`,
+    },
+    data: {
+      label: c.name,
+      typeLabel: containerTypeLabel(c.type),
+      description: c.description ?? '',
+      accent: containerAccent(c.type),
+    },
+  }))
+  const nodes: Node[] = store.current.nodes.map((n) => ({
     id: n.id,
     type: 'arch',
     position: { x: n.position.x, y: n.position.y },
@@ -46,25 +78,45 @@ const vfNodes = computed<Node[]>(() =>
       height: n.size.height,
       accent: accentFor(n.type),
     },
-  })),
-)
+  }))
+  return [...groups, ...nodes]
+})
+
+// Human-readable container type label + accent (group chrome).
+function containerTypeLabel(t: string): string {
+  const map: Record<string, string> = {
+    system: '系統', application: '應用程式', environment: '環境', network: '網路',
+    vpc: 'VPC', subnet: '子網路', cluster: '叢集', namespace: '命名空間', group: '群組',
+  }
+  return map[t] ?? '群組'
+}
+function containerAccent(t: string): string {
+  const map: Record<string, string> = {
+    system: '#38bdf8', application: '#34d399', environment: '#a78bfa', network: '#f472b6',
+    vpc: '#f472b6', subnet: '#f472b6', cluster: '#f59e0b', namespace: '#f59e0b', group: '#64748b',
+  }
+  return map[t] ?? '#64748b'
+}
 
 // Build the edge list. Edges connected to the hovered node get an Intent-Trace
-// highlight; edges in `pulseEdges` get the animated directional flow pulse.
+// highlight AND the directional flow pulse; edges in `pulseEdges` (clicked) get
+// the pulse too. Edges use orthogonal (smoothstep) routing so they read as
+// technical architecture lines rather than curvy beziers.
 const vfEdges = computed<Edge[]>(() => {
   return store.current.connections.map((c) => {
     const isHover = hoverId.value === c.sourceId || hoverId.value === c.targetId
-    const isPulse = pulseEdges.value.has(c.id)
-    const dim = hoverId.value !== null && !isHover
-    const color = isPulse || isHover ? '#38bdf8' : '#526889'
+    const isPulse = pulseEdges.value.has(c.id) || isHover
+    const dim = hoverId.value !== null && !isHover && !pulseEdges.value.has(c.id)
+    const color = isPulse ? '#38bdf8' : '#526889'
     return {
       id: c.id,
       source: c.sourceId,
       target: c.targetId,
+      type: 'smoothstep',
       animated: isPulse,
       style: {
         stroke: color,
-        strokeWidth: isPulse || isHover ? 2.2 : 1.5,
+        strokeWidth: isPulse ? 2.2 : 1.5,
         opacity: dim ? 0.25 : 1,
         transition: 'stroke 0.2s ease, stroke-width 0.2s ease, opacity 0.2s ease',
       },
@@ -90,11 +142,120 @@ watch(
 )
 syncFromStore()
 
-// Vue Flow interactions -> store
-onNodeDragStop(({ node }) => {
-  const n = store.current.nodes.find((i) => i.id === node.id)
-  if (n) n.position = { x: node.position.x, y: node.position.y }
+// Fit-to-view: the navbar bumps `fitNonce`; we call Vue Flow's fitView once.
+watch(
+  () => store.fitRequested,
+  () => fitView({ padding: 0.2, duration: 200 }),
+)
+
+// --- Group-drag follow + node drag persistence --------------------------
+// Because positions are absolute (no Vue Flow parentNode), dragging a group does
+// NOT auto-move its children. We capture the group + children's starting spots on
+// drag-start, then translate every child by the same delta on each drag frame.
+const dragState = ref<{ groupId: string; groupStart: { x: number; y: number }; childStart: Map<string, { x: number; y: number }> } | null>(null)
+
+onNodeDragStart(({ node }) => {
+  const c = store.current.containers.find((i) => i.id === node.id)
+  if (!c) return
+  const childStart = new Map<string, { x: number; y: number }>()
+  for (const n of store.current.nodes) {
+    if (n.containerId === c.id) childStart.set(n.id, { x: n.position.x, y: n.position.y })
+  }
+  dragState.value = { groupId: c.id, groupStart: { x: c.position.x, y: c.position.y }, childStart }
 })
+
+onNodeDrag(({ node }) => {
+  const s = dragState.value
+  if (!s || s.groupId !== node.id) return
+  const dx = node.position.x - s.groupStart.x
+  const dy = node.position.y - s.groupStart.y
+  for (const [cid, start] of s.childStart) {
+    // Command-level update of the Vue Flow internal node — does NOT touch the
+    // store, so it won't trigger our re-sync watch mid-drag.
+    updateNode(cid, { position: { x: start.x + dx, y: start.y + dy } })
+  }
+})
+
+// Vue Flow interactions -> store
+onNodeDragStop(async ({ node }) => {
+  // Dragging a group container: persist its new absolute position + children.
+  const s = dragState.value
+  if (s && s.groupId === node.id) {
+    const c = store.current.containers.find((i) => i.id === s.groupId)
+    if (c) c.position = { x: node.position.x, y: node.position.y }
+    for (const [cid] of s.childStart) {
+      const child = store.current.nodes.find((n) => n.id === cid)
+      const vf = findNode(cid)
+      if (child && vf) child.position = { x: vf.position.x, y: vf.position.y }
+    }
+    dragState.value = null
+    if (store.selectedId) updateNodeScreenRect(c?.id ?? store.selectedId)
+    return
+  }
+  dragState.value = null
+
+  const n = store.current.nodes.find((i) => i.id === node.id)
+  if (!n) return
+  n.position = { x: node.position.x, y: node.position.y }
+
+  // Work out which group (if any) the node's CENTER was dropped onto.
+  const target = containerAt(node.position.x, node.position.y)
+  if (target && target.id !== n.containerId) {
+    // Dropped onto a DIFFERENT group -> ask to join it.
+    const ok = await confirm({
+      title: '加入群組？',
+      description: `將「${n.name}」加入群組「${target.name}」？`,
+      confirmText: '加入',
+      cancelText: '取消',
+    })
+    if (ok) {
+      store.addNodeToContainer(n.id, target.id)
+    } else if (n.containerId) {
+      // Cancelled: keep original membership, snap back inside the original group.
+      snapBackToGroup(n, node)
+    }
+  } else if (!target && n.containerId) {
+    // Dropped OUTSIDE any group while it belonged to one -> ask to leave it.
+    const c = store.current.containers.find((i) => i.id === n.containerId)
+    if (c) {
+      const ok = await confirm({
+        title: '移出群組？',
+        description: `「${n.name}」已移出群組「${c.name}」，是否解除群組關聯？`,
+        confirmText: '移出',
+        cancelText: '保留',
+      })
+      if (ok) {
+        store.addNodeToContainer(n.id, null)
+      } else {
+        snapBackToGroup(n, node)
+      }
+    }
+  }
+  // Re-measure the selected node so the floating inspector stays glued.
+  if (store.selectedId) updateNodeScreenRect(store.selectedId)
+})
+
+// Find the topmost group whose box contains the node's center (NODE_W/H offset).
+function containerAt(x: number, y: number): ArchitectureContainer | null {
+  const cx = x + NODE_W / 2
+  const cy = y + NODE_H / 2
+  let found: ArchitectureContainer | null = null
+  for (const c of store.current.containers) {
+    if (cx >= c.position.x && cx <= c.position.x + c.size.width && cy >= c.position.y && cy <= c.position.y + c.size.height) {
+      found = c
+    }
+  }
+  return found
+}
+// Snap a node back just inside the bounds of the group it already belongs to.
+function snapBackToGroup(n: ArchitectureNode, node: { position: { x: number; y: number } }) {
+  const c = n.containerId ? store.current.containers.find((i) => i.id === n.containerId) : undefined
+  if (!c) return
+  const snapX = Math.min(Math.max(node.position.x, c.position.x + NODE_W / 2), c.position.x + c.size.width - NODE_W / 2)
+  const snapY = Math.min(Math.max(node.position.y, c.position.y + NODE_H / 2), c.position.y + c.size.height - NODE_H / 2)
+  n.position = { x: snapX, y: snapY }
+  updateNode(n.id, { position: { x: snapX, y: snapY } })
+}
 
 onNodeClick(({ node, event }) => {
   store.select(node.id)
@@ -124,11 +285,63 @@ onNodeMouseLeave(() => {
   hoverId.value = null
 })
 
+onConnect((conn: Connection) => {
+  if (!conn.source || !conn.target || conn.source === conn.target) return
+  store.addConnection(conn.source, conn.target)
+})
+
 onPaneClick(() => {
   store.select(null)
   pulseEdges.value = new Set()
   setRect(null)
 })
+
+// --- Keyboard shortcuts (common node-editing habits) ----------------------
+// Only act when the user isn't typing in a field, so Delete/Backspace never
+// wipes a node while editing its name in the inspector.
+function isEditing() {
+  const el = document.activeElement as HTMLElement | null
+  if (!el) return false
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable
+}
+function onKey(e: KeyboardEvent) {
+  if (isEditing()) return
+  const mod = e.metaKey || e.ctrlKey
+  if (mod && e.key.toLowerCase() === 'z') {
+    e.preventDefault()
+    if (e.shiftKey) store.redo()
+    else store.undo()
+    return
+  }
+  if (mod && e.key.toLowerCase() === 's') {
+    e.preventDefault()
+    store.save()
+    return
+  }
+  if (mod && e.key.toLowerCase() === 'a') {
+    // Let Vue Flow's selection box handle multi-select; don't hijack.
+    return
+  }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (store.selectedId) {
+      e.preventDefault()
+      store.removeSelected()
+    }
+    return
+  }
+  if (e.key === 'f' || e.key === 'F') {
+    store.fit()
+    return
+  }
+  if (e.key === 'Escape') {
+    store.select(null)
+    pulseEdges.value = new Set()
+    setRect(null)
+  }
+}
+window.addEventListener('keydown', onKey)
+onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
 // Zoom controlled by the navbar (single source = store.viewport.zoom)
 watch(
@@ -161,14 +374,21 @@ function updateNodeScreenRect(id: string, event?: MouseTouchEvent) {
 
 // Drag-and-drop from the floating component library
 const DRAG_MIME = 'application/vueflow'
+const GROUP_MIME = 'application/vueflow-group'
 function onDrop(e: DragEvent) {
+  const groupType = e.dataTransfer?.getData(GROUP_MIME)
+  if (groupType === 'group') {
+    const pos = screenToFlowCoordinate({ x: e.clientX, y: e.clientY })
+    store.addContainer(pos.x, pos.y)
+    return
+  }
   const type = e.dataTransfer?.getData(DRAG_MIME) as NodeType | ''
   if (!type) return
   const pos = screenToFlowCoordinate({ x: e.clientX, y: e.clientY })
   store.addNode(type, pos.x, pos.y)
 }
 function onDragOver(e: DragEvent) {
-  if (e.dataTransfer?.types.includes(DRAG_MIME)) {
+  if (e.dataTransfer?.types.includes(DRAG_MIME) || e.dataTransfer?.types.includes(GROUP_MIME)) {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
   }
@@ -181,6 +401,8 @@ function onDragOver(e: DragEvent) {
       :nodes="vfNodes"
       :edges="vfEdges"
       :node-types="nodeTypes"
+      :connection-mode="ConnectionMode.Loose"
+      :nodes-connectable="true"
       :zoom-on-scroll="false"
       :default-viewport="{ zoom: store.current.viewport.zoom, x: 0, y: 0 }"
       class="arch-flow"
