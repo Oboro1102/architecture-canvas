@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, markRaw, onBeforeUnmount, onMounted } from 'vue'
+import { computed, ref, watch, markRaw, onBeforeUnmount, onMounted, nextTick } from 'vue'
 import { VueFlow, useVueFlow, MarkerType, ConnectionMode, type Node, type Edge, type Connection, type MouseTouchEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import ArchNode from './ArchNode.vue'
@@ -30,6 +30,7 @@ const {
   onPaneClick,
   onConnect,
   onViewportChange,
+  onNodesInitialized,
   getViewport,
 } = useVueFlow()
 // Vue Flow owns the live viewport (zoom/pan the user actually sees). We keep it
@@ -131,16 +132,56 @@ watch(
 )
 syncFromStore()
 
-// On first mount, fit the template into view so the canvas isn't stuck at the
-// default 1:1 zoom. This also pulls the live zoom back into the store via the
-// onViewportChange sync below, keeping the navbar % honest from the start.
-onMounted(() => {
-  fitView({ padding: 0.2, duration: 0 })
+// On first mount we request a fit so the canvas isn't stuck at the default
+// 1:1 zoom. The actual fitView waits until Vue Flow has MEASURED the nodes
+// (onNodesInitialized) — fitting before measurement frames a 0-size canvas and
+// does nothing useful. This also pulls the live zoom back into the store via
+// the onViewportChange sync below, keeping the navbar % honest.
+//
+// Two distinct triggers feed one `wantFit` flag:
+//   1. store.fit()  (navbar "符合" button, keyboard 'f'): the CURRENT view is
+//      already measured, so we fit immediately.
+//   2. a whole node-set replacement (template switch / import / new): we watch
+//      the nodes ARRAY REFERENCE (not deep content) and, once Vue Flow
+//      re-measures the new nodes, fit again. This is exactly "fit once after
+//      switching templates". Adding a single node (push, same reference) must
+//      NOT trigger an auto-fit.
+let isInitialized = false
+let wantFit = false
+function tryFit() {
+  if (wantFit && isInitialized) {
+    wantFit = false
+    // One more tick so the just-measured dimensions are committed before we
+    // compute the bounding box.
+    nextTick(() => fitView({ padding: 0.2, duration: 200 }))
+  }
+}
+function doFit() {
+  // Manual request on an already-measured view: fit right away.
+  wantFit = true
+  tryFit()
+}
+// Fires whenever ALL nodes have been measured — initial mount, and again after
+// the node set is replaced (template switch / import) and re-measured.
+onNodesInitialized(() => {
+  isInitialized = true
+  tryFit()
 })
+// Auto-fit when the entire node set is swapped (template switch / import / new
+// architecture). A reference change (not a deep content change) means the
+// structure was replaced, so wait for re-measurement rather than fitting the
+// outgoing nodes.
 watch(
-  () => store.fitRequested,
-  () => fitView({ padding: 0.2, duration: 200 }),
+  () => store.current.nodes,
+  () => {
+    wantFit = true
+  },
 )
+onMounted(() => {
+  store.registerFit(doFit)
+  // First-load: request a fit once the initial nodes are measured.
+  doFit()
+})
 
 // --- Group-drag follow + node drag persistence --------------------------
 // Because positions are absolute (no Vue Flow parentNode), dragging a group does

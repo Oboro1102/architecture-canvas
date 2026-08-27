@@ -40,7 +40,8 @@ function applyTemplate(value: unknown) {
   }
   store.replace(built)
   store.select(null)
-  store.fit()
+  // The canvas watches the nodes array reference and auto-fits once the new
+  // template's nodes are measured — no explicit fit() call needed here.
 }
 
 function exportJson() {
@@ -69,7 +70,8 @@ function onImportFile(e: Event) {
     if (!ok) {
       await confirm({ title: '匯入失敗', description: '檔案不是有效的架構 JSON。', confirmText: '確定', cancelText: '關閉' })
     } else {
-      store.fit()
+      // Canvas watches the nodes array reference and auto-fits the imported
+      // architecture once its nodes are measured.
     }
   }
   reader.readAsText(file)

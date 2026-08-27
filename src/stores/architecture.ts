@@ -13,8 +13,27 @@ export const useArchitectureStore = defineStore('architecture', () => {
   // session always opens with a meaningful, grouped, fully-wired architecture.
   const current = ref<Architecture>(buildTemplate('電子商務平台') ?? demoArchitecture())
   const selectedId = ref<string | null>(null)
-  const fitNonce = ref(0)
-  const fitRequested = computed(() => fitNonce.value > 0)
+  // The canvas owns the live Vue Flow viewport and its `fitView`. It registers
+  // its real fitView callback here so any caller (navbar button, keyboard 'f',
+  // template switch, import) can request a fit without the store importing
+  // Vue Flow directly. Registering the callback (rather than toggling a boolean
+  // flag) is exactly what fixes the "fit only works once" bug: a boolean flag
+  // flips false->true on the first call and then never changes again, so the
+  // canvas watch that keyed off it stopped firing on every later click.
+  let fitHandler: (() => void) | null = null
+  let fitPending = false
+  function registerFit(fn: () => void) {
+    fitHandler = fn
+    // If a fit was requested before the canvas mounted/registered, honor it now.
+    if (fitPending) {
+      fitPending = false
+      fn()
+    }
+  }
+  function fit() {
+    if (fitHandler) fitHandler()
+    else fitPending = true
+  }
   const past = ref<Architecture[]>([])
   const future = ref<Architecture[]>([])
   const selected = computed(() => current.value.nodes.find(n => n.id === selectedId.value) ?? current.value.containers.find(c => c.id === selectedId.value) ?? current.value.connections.find(c => c.id === selectedId.value) ?? null)
@@ -67,7 +86,6 @@ export const useArchitectureStore = defineStore('architecture', () => {
   }
   function zoomIn() { const z = current.value.viewport.zoom || 1; current.value.viewport.zoom = Math.min(z * 1.2, 3) }
   function zoomOut() { const z = current.value.viewport.zoom || 1; current.value.viewport.zoom = Math.max(z / 1.2, 0.3) }
-  function fit() { fitNonce.value++ }
   // --- Persistence via JSON (import / export) ------------------------------
   // Export the current architecture as a pretty-printed JSON string. This is
   // the canonical "save" action (see README: JSON Format).
@@ -95,5 +113,5 @@ export const useArchitectureStore = defineStore('architecture', () => {
   function undo() { const p = past.value.pop(); if (p) { future.value.push(clone(current.value)); current.value = p } }
   function redo() { const f = future.value.pop(); if (f) { past.value.push(clone(current.value)); current.value = f } }
   load()
-  return { architectures, current, selectedId, fitRequested, selected, canUndo: computed(() => past.value.length > 0), canRedo: computed(() => future.value.length > 0), load, save, newArchitecture, replace, addNode, updateNode, removeSelected, addConnection, select, getNeighbors, zoomIn, zoomOut, fit, addContainer, updateContainer, addNodeToContainer, removeContainer, undo, redo, exportJson, importJson }
+  return { architectures, current, selectedId, registerFit, selected, canUndo: computed(() => past.value.length > 0), canRedo: computed(() => future.value.length > 0), load, save, newArchitecture, replace, addNode, updateNode, removeSelected, addConnection, select, getNeighbors, zoomIn, zoomOut, fit, addContainer, updateContainer, addNodeToContainer, removeContainer, undo, redo, exportJson, importJson }
 })

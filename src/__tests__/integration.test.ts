@@ -165,12 +165,34 @@ describe('畫布操作 (zoom)', () => {
     expect(store.current.viewport.zoom).toBeGreaterThanOrEqual(0.3)
   })
 
-  it('fit() 會觸發 fitRequested (Canvas 據此 fitView)', () => {
+  it('fit() 會呼叫 canvas 註冊的 fitView 回呼，且可連續多次呼叫', () => {
     const store = useArchitectureStore()
     store.newArchitecture('blank')
-    const before = store.fitRequested
+    // Canvas 會在掛載時把真正的 fitView 註冊進 store。
+    let calls = 0
+    store.registerFit(() => { calls++ })
+    // 第一次呼叫應觸發一次 fit。
     store.fit()
-    expect(store.fitRequested).toBe(!before)
+    expect(calls).toBe(1)
+    // 回歸測試：舊實作用「布林 flag」轉接，第二次呼叫 flag 仍為 true、
+    // watch 不再觸發，fit 只會作用一次。新實作直接呼叫回呼，應每次都觸發。
+    store.fit()
+    store.fit()
+    expect(calls).toBe(3)
+  })
+
+  it('fit() 在 canvas 註冊前呼叫會暫存，註冊後立即補執行一次', () => {
+    const store = useArchitectureStore()
+    store.newArchitecture('blank')
+    // 註冊前先要求 fit（例如 store 比 canvas 早初始化的極端情況）。
+    store.fit()
+    let calls = 0
+    store.registerFit(() => { calls++ })
+    // 註冊時應補跑一次暫存的 fit。
+    expect(calls).toBe(1)
+    // 之後的呼叫正常每次觸發。
+    store.fit()
+    expect(calls).toBe(2)
   })
 })
 
