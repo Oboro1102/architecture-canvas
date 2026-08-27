@@ -13,7 +13,7 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
     :style="{
       borderColor: props.selected ? accent : 'rgba(51,71,102,0.9)',
       boxShadow: props.selected
-        ? `0 0 0 2px ${accent}, 0 0 18px ${accent}55`
+        ? `0 0 0 2px ${accent}, 0 0 22px ${accent}66`
         : 'none',
     }"
   >
@@ -24,7 +24,7 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
       }"
     />
     <div class="arch-node__label">{{ (props.data?.label as string) }}</div>
-    <div class="arch-node__type">{{ (props.data?.typeLabel as string) }}</div>
+    <div class="arch-node__type" :style="{ color: accent + 'cc' }">{{ (props.data?.typeLabel as string) }}</div>
     <div v-if="props.data?.technology" class="arch-node__tech">
       {{ (props.data?.technology as string) }}
     </div>

@@ -15,8 +15,8 @@
 
 ### 現行狀態（code-level）
 
-- 已落地：主框架（`LandingView.vue` 實為 Architecture Canvas 主畫面）、`ArchitectureCanvas.vue`（基於 `@antv/x6`）、`types/architecture.ts`（領域模型）、`stores/architecture.ts`（含 undo/redo、save/load、add/update/remove/connect）。
-- Canvas 渲染層使用 **HTML Canvas 2D + `@antv/x6`**。**禁止引入 Three.js / React Flow / Vue Flow / 以 SVG 作為主要渲染層**（spec §3）。
+- 已落地：主框架（`LandingView.vue` 實為 Architecture Canvas 主畫面）、`ArchitectureCanvas.vue`（基於 `@vue-flow/core`）、`types/architecture.ts`（領域模型）、`stores/architecture.ts`（含 undo/redo、save/load、add/update/remove/connect）。
+- Canvas 渲染層使用 **`@vue-flow/core`**（Vue Flow 圖編輯核心）。**禁止引入 Three.js / React Flow（舊稱）/ 以 SVG 作為主要渲染層**（spec §3）。
 - 視覺風格：深底（`#080c16` / `#0d1424` / `#0b1220`）、cyan 強調色（`cyan-400/300`）、subtle grid。
 
 ### 關鍵架構原則（spec §4）
@@ -30,7 +30,7 @@
 | 章 | 主題 | 重點 |
 |---|---|---|
 | 1–2 | 產品定義 / 定位 | 系統架構圖建構器，非 AI 模擬 |
-| 3 | 既有技術 | Vue/TS/Vite/Tailwind 保留；Canvas 2D + @antv/x6；禁 Three.js/React Flow/Vue Flow/SVG 主層 |
+| 3 | 既有技術 | Vue/TS/Vite/Tailwind 保留；圖編輯核心 @vue-flow/core；禁 Three.js/SVG 主層 |
 | 5–14 | Domain Model | Architecture / Node / NodeType(17) / NodeShape / Container / Connection / ConnectionType(6) |
 | 15–20 | Canvas / Camera / Grid / Selection / Interaction / 鍵盤 | Pan/Zoom(0.25–3x)/Select/Multi-select/Drag/Resize/Connect/Delete/Grid+Snap；Del/Backspace、Cmd+Z、Cmd+Shift+Z、Cmd+S、Cmd+A/C/V、Esc、F(fit)、G(grid) |
 | 21 | Undo/Redo | CommandHistory（勿整份 clone），至少涵蓋增刪改 Node/Connection/Container |
@@ -50,7 +50,7 @@
 | 建置 | Vite 8, `vue-tsc` 型別檢查 |
 | 狀態 | Pinia |
 | UI | Tailwind CSS v4（CSS-first，無 tailwind.config）+ shadcn-vue (reka-ui, style: reka-vega) + lucide icons |
-| 畫布 | HTML Canvas 2D + `@antv/x6`（圖編輯核心） |
+| 畫布 | `@vue-flow/core`（圖編輯核心） |
 | 測試 | Vitest（jsdom, globals: true） |
 | Lint | oxlint（第一層）→ ESLint（第二層），Prettier 格式化 |
 
@@ -73,7 +73,7 @@ npx vitest run      # 全部測試；npx vitest run src/__tests__/xxx.test.ts �
 src/
 ├── components/
 │   ├── ui/                # shadcn-vue 生成元件 —— 不手改，由 CLI 管理
-│   ├── architecture/      # ArchitectureCanvas.vue（@antv/x6 橋接 wrapper）
+│   ├── architecture/      # ArchitectureCanvas.vue（@vue-flow/core 橋接 wrapper）
 │   ├── layout/            # LandingView.vue（實為 Architecture Canvas 主畫面）
 │   └── common/            # 通用元件（按需求新增）
 ├── stores/                # Pinia：architecture（主）、及舊 AI Company OS 遺留（ai/agents/company/...）
@@ -93,7 +93,9 @@ src/
 - **樣式**：Tailwind utility classes + `main.css` 的 CSS variables 主題 token；用 `cn()` 合併 class。不寫行內 style、不新增全域 CSS（除非主題 token）。
 - **狀態**：跨元件共享的架構狀態進 `stores/architecture.ts`；元件區域狀態留在元件內。所有編輯操作（add/update/remove/connect/undo/redo/save/load）集中在 store，Component 不直改 `store.current` 內部陣列，一律呼叫 action。
 - **型別**：領域資料結構定義在 `src/types/architecture.ts`，UI 與 store 都從那裡 import，不要在元件裡重新宣告介面。
-- **畫布**：所有圖編輯邏輯走 `@antv/x6` 的 `Graph` API；不要在 Canvas 上手寫拖拽/連線狀態機去繞過 x6。
+- **畫布**：所有圖編輯邏輯走 `@vue-flow/core` 的 `useVueFlow()` API（含 `setNodes`/`setEdges`/`onNodeClick`/`screenToFlowCoordinate` 等）；不要在 Canvas 上手寫拖拽/連線狀態機去繞過 Vue Flow。
+- **儲存**：前端持久化一律用 `sessionStorage`，**禁止用 `localStorage`**。現有實作在 `stores/architecture.ts` 的 `load()`/`save()`（key = `architecture-canvas.architectures`）。理由：架構草稿屬於當前編輯 session，關閉分頁即清除、不同分頁各自獨立，避免跨 session 殘留舊資料造成混淆。新增任何需要持久化的資料時，同樣走 `sessionStorage`，不要引入 `localStorage`。
+- **元件勿入響應式**：Vue 元件定義（SFC import 進來的元件物件）傳給 Vue Flow 的 `:node-types` / `:edge-types` 時，必須用 `markRaw()` 包住（例：`const nodeTypes = markRaw({ arch: ArchNode })`）。直接把元件放進普通物件/ref 會觸發 `Vue received a Component that was made a reactive object` 黃色效能警告。
 - **測試**：新功能（尤其 store 的 add/update/connect/undo/redo/save/load、匯出邏輯）附帶對應測試於 `src/__tests__/`，命名 `*.test.ts`。
 
 ## 注意事項

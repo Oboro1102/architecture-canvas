@@ -119,6 +119,35 @@ body {
   }
 }
 
+/* Architecture Canvas — Vue Flow theming
+   The canvas itself sits at the lowest layer (z-0); every UI surface floats
+   above it. Directional-flow pulse on selected edges is intentionally kept so
+   the presentation reads like archify's Relationship Preview. */
+.vue-flow__edge.animated .vue-flow__edge-path {
+  stroke-dasharray: 6 4;
+  animation: arch-flow-dash 1.2s linear infinite;
+}
+@keyframes arch-flow-dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vue-flow__edge.animated .vue-flow__edge-path {
+    animation: none;
+    stroke-dasharray: none;
+  }
+}
+.vue-flow__node {
+  cursor: grab;
+}
+.vue-flow__node:active {
+  cursor: grabbing;
+}
+.arch-flow .vue-flow__pane {
+  cursor: default;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);

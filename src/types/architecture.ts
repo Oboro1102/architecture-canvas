@@ -14,5 +14,29 @@ export interface Architecture { id: string; name: string; description?: string; 
 export const NODE_LABELS: Record<NodeType, string> = { user: '使用者', client: '用戶端', frontend: '前端', backend: '後端', service: '服務', worker: '工作處理程序', gateway: 'API 閘道', 'load-balancer': '負載平衡器', server: '伺服器', container: '容器', database: '資料庫', cache: '快取', storage: '物件儲存', queue: '佇列', 'message-broker': '訊息代理程式', 'external-api': '外部 API', 'external-system': '外部系統' }
 export const NODE_GROUPS = [{ label: '應用程式', types: ['frontend','backend','service','worker'] as NodeType[] }, { label: '基礎設施', types: ['gateway','load-balancer','server','container'] as NodeType[] }, { label: '資料', types: ['database','cache','storage','queue','message-broker'] as NodeType[] }, { label: '外部系統', types: ['user','client','external-api','external-system'] as NodeType[] }]
 const now = () => new Date().toISOString()
+// Per node-type accent color, used for the node border/glow and the connection
+// pulse so each node group reads with its own hue (mirrors archify's token vocab).
+export const NODE_ACCENTS: Record<NodeType, string> = {
+  user: '#a78bfa',
+  client: '#a78bfa',
+  frontend: '#38bdf8',
+  backend: '#34d399',
+  service: '#34d399',
+  worker: '#fbbf24',
+  gateway: '#f472b6',
+  'load-balancer': '#f472b6',
+  server: '#f59e0b',
+  container: '#f59e0b',
+  database: '#22d3ee',
+  cache: '#22d3ee',
+  storage: '#22d3ee',
+  queue: '#fb923c',
+  'message-broker': '#fb923c',
+  'external-api': '#f87171',
+  'external-system': '#f87171',
+}
+export function accentFor(type: NodeType): string {
+  return NODE_ACCENTS[type] ?? '#38bdf8'
+}
 export function blankArchitecture(name = '未命名架構'): Architecture { return { id: crypto.randomUUID(), name, nodes: [], containers: [], connections: [], viewport: { x: 0, y: 0, zoom: 1 }, settings: { grid: true, snap: true, gridSize: 16, background: 'dark' }, createdAt: now(), updatedAt: now() } }
 export function demoArchitecture(): Architecture { const a = blankArchitecture('電子商務平台'); const add = (id: string, name: string, type: NodeType, x: number, y: number, technology?: string) => a.nodes.push({ id, name, type, technology, position: { x, y }, size: { width: 150, height: 82 }, shape: 'rounded' }); add('user','使用者','user',70,260); add('cdn','CDN','gateway',290,260,'CloudFront'); add('frontend','前端','frontend',510,260,'Next.js'); add('gateway','API 閘道','gateway',730,260,'Kong'); add('users','使用者服務','service',980,120,'NestJS'); add('orders','訂單服務','service',980,260,'NestJS'); add('payments','付款服務','service',980,400,'Node.js'); add('db','PostgreSQL','database',1240,220,'PostgreSQL'); add('redis','Redis','cache',1240,380,'Redis'); add('queue','佇列','queue',980,560,'Kafka'); add('worker','工作處理程序','worker',1240,560,'BullMQ'); const links: [string, string][] = [['user','cdn'],['cdn','frontend'],['frontend','gateway'],['gateway','users'],['gateway','orders'],['gateway','payments'],['users','db'],['orders','db'],['gateway','redis'],['payments','queue'],['queue','worker']]; a.connections = links.map(([sourceId,targetId], i) => ({ id: `edge-${i}`, sourceId, targetId, type: 'synchronous', protocol: 'HTTPS' })); return a }
