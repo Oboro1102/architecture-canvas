@@ -5,7 +5,7 @@ import { Background } from '@vue-flow/background'
 import ArchNode from './ArchNode.vue'
 import ArchGroupNode from './ArchGroupNode.vue'
 import { useArchitectureStore } from '@/stores/architecture'
-import { NODE_LABELS, accentFor, type NodeType, type ArchitectureContainer, type ArchitectureNode } from '@/types/architecture'
+import { NODE_LABELS, accentFor, containerLabelFor, containerAccentFor, type NodeType, type ArchitectureContainer, type ArchitectureNode } from '@/types/architecture'
 import { useNodeScreenRect } from '@/composables/useNodeScreenRect'
 import { useConfirm } from '@/composables/useConfirm'
 
@@ -65,11 +65,11 @@ const vfNodes = computed<Node[]>(() => {
     },
     data: {
       label: c.name,
-      typeLabel: containerTypeLabel(c.type),
+      typeLabel: containerLabelFor(c.type),
       description: c.description ?? '',
-      accent: containerAccent(c.type),
+      accent: containerAccentFor(c.type),
     },
-  }))
+    }))
   const nodes: Node[] = store.current.nodes.map((n) => ({
     id: n.id,
     type: 'arch',
@@ -86,22 +86,6 @@ const vfNodes = computed<Node[]>(() => {
   }))
   return [...groups, ...nodes]
 })
-
-// Human-readable container type label + accent (group chrome).
-function containerTypeLabel(t: string): string {
-  const map: Record<string, string> = {
-    system: '系統', application: '應用程式', environment: '環境', network: '網路',
-    vpc: 'VPC', subnet: '子網路', cluster: '叢集', namespace: '命名空間', group: '群組',
-  }
-  return map[t] ?? '群組'
-}
-function containerAccent(t: string): string {
-  const map: Record<string, string> = {
-    system: '#38bdf8', application: '#34d399', environment: '#a78bfa', network: '#f472b6',
-    vpc: '#f472b6', subnet: '#f472b6', cluster: '#f59e0b', namespace: '#f59e0b', group: '#64748b',
-  }
-  return map[t] ?? '#64748b'
-}
 
 // Build the edge list. Edges connected to the hovered node get an Intent-Trace
 // highlight AND the directional flow pulse; edges in `pulseEdges` (clicked) get

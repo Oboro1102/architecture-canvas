@@ -1,5 +1,5 @@
 export type NodeType = 'user' | 'client' | 'frontend' | 'backend' | 'service' | 'worker' | 'gateway' | 'load-balancer' | 'server' | 'container' | 'database' | 'cache' | 'storage' | 'queue' | 'message-broker' | 'external-api' | 'external-system'
-export type ContainerType = 'system' | 'application' | 'environment' | 'network' | 'vpc' | 'subnet' | 'cluster' | 'namespace' | 'group'
+export type ContainerType = 'system' | 'application' | 'environment' | 'network' | 'vpc' | 'subnet' | 'cluster' | 'namespace' | 'group' | 'data'
 export type ConnectionType = 'dependency' | 'synchronous' | 'asynchronous' | 'event' | 'data-flow' | 'replication'
 export type NodeShape = 'rectangle' | 'rounded' | 'circle' | 'database' | 'hexagon'
 export interface Point { x: number; y: number }
@@ -38,6 +38,25 @@ export const NODE_ACCENTS: Record<NodeType, string> = {
 export function accentFor(type: NodeType): string {
   return NODE_ACCENTS[type] ?? '#38bdf8'
 }
+// Per container-type label + accent (group chrome). Kept here (not in the
+// canvas component) so the domain vocabulary stays in one place and the maps
+// are built once at module load instead of on every render.
+export const CONTAINER_LABELS: Record<ContainerType, string> = {
+  system: '系統', application: '應用程式', environment: '環境', network: '網路',
+  vpc: 'VPC', subnet: '子網路', cluster: '叢集', namespace: '命名空間',
+  group: '群組', data: '資料層',
+}
+export const CONTAINER_ACCENTS: Record<ContainerType, string> = {
+  system: '#38bdf8', application: '#34d399', environment: '#a78bfa', network: '#f472b6',
+  vpc: '#f472b6', subnet: '#f472b6', cluster: '#f59e0b', namespace: '#f59e0b',
+  group: '#64748b', data: '#22d3ee',
+}
+export function containerLabelFor(t: ContainerType): string {
+  return CONTAINER_LABELS[t] ?? '群組'
+}
+export function containerAccentFor(t: ContainerType): string {
+  return CONTAINER_ACCENTS[t] ?? '#64748b'
+}
 export function blankArchitecture(name = '未命名架構'): Architecture { return { id: crypto.randomUUID(), name, nodes: [], containers: [], connections: [], viewport: { x: 0, y: 0, zoom: 1 }, settings: { grid: true, snap: true, gridSize: 16, background: 'dark' }, createdAt: now(), updatedAt: now() } }
 export function demoArchitecture(): Architecture { const a = blankArchitecture('電子商務平台'); const add = (id: string, name: string, type: NodeType, x: number, y: number, technology?: string) => a.nodes.push({ id, name, type, technology, position: { x, y }, size: { width: 150, height: 82 }, shape: 'rounded' }); add('user','使用者','user',70,260); add('cdn','CDN','gateway',290,260,'CloudFront'); add('frontend','前端','frontend',510,260,'Next.js'); add('gateway','API 閘道','gateway',730,260,'Kong'); add('users','使用者服務','service',980,120,'NestJS'); add('orders','訂單服務','service',980,260,'NestJS'); add('payments','付款服務','service',980,400,'Node.js'); add('db','PostgreSQL','database',1240,220,'PostgreSQL'); add('redis','Redis','cache',1240,380,'Redis'); add('queue','佇列','queue',980,560,'Kafka'); add('worker','工作處理程序','worker',1240,560,'BullMQ'); const links: [string, string][] = [['user','cdn'],['cdn','frontend'],['frontend','gateway'],['gateway','users'],['gateway','orders'],['gateway','payments'],['users','db'],['orders','db'],['gateway','redis'],['payments','queue'],['queue','worker']]; a.connections = links.map(([sourceId,targetId], i) => ({ id: `edge-${i}`, sourceId, targetId, type: 'synchronous', protocol: 'HTTPS' })); return a }
 
@@ -64,7 +83,7 @@ const TEMPLATES: Record<string, Tpl> = {
         { id: 'orders', type: 'service', name: '訂單服務', technology: 'NestJS', dx: 200, dy: 110 },
         { id: 'payments', type: 'service', name: '付款服務', technology: 'Node.js', dx: 200, dy: 200 },
       ] },
-      { id: 'g-data', name: '資料與非同步', type: 'data' as ContainerType, x: 1020, y: 200, w: 340, h: 460, nodes: [
+      { id: 'g-data', name: '資料與非同步', type: 'data', x: 1020, y: 200, w: 340, h: 460, nodes: [
         { id: 'db', type: 'database', name: 'PostgreSQL', technology: 'PostgreSQL', dx: 30, dy: 30 },
         { id: 'redis', type: 'cache', name: 'Redis', technology: 'Redis', dx: 30, dy: 150 },
         { id: 'queue', type: 'queue', name: '佇列', technology: 'Kafka', dx: 180, dy: 250 },
@@ -83,7 +102,7 @@ const TEMPLATES: Record<string, Tpl> = {
       { id: 'g-app', name: '應用層', type: 'application', x: 480, y: 200, w: 300, h: 160, nodes: [
         { id: 'backend', type: 'backend', name: '後端', technology: 'Spring', dx: 80, dy: 50 },
       ] },
-      { id: 'g-data', name: '資料層', type: 'data' as ContainerType, x: 840, y: 200, w: 300, h: 160, nodes: [
+      { id: 'g-data', name: '資料層', type: 'data', x: 840, y: 200, w: 300, h: 160, nodes: [
         { id: 'database', type: 'database', name: '資料庫', technology: 'PostgreSQL', dx: 80, dy: 50 },
       ] },
     ],
@@ -101,7 +120,7 @@ const TEMPLATES: Record<string, Tpl> = {
         { id: 's2', type: 'service', name: '服務 B', technology: 'Go', dx: 30, dy: 130 },
         { id: 's3', type: 'service', name: '服務 C', technology: 'Go', dx: 30, dy: 230 },
       ] },
-      { id: 'g-data', name: '資料', type: 'data' as ContainerType, x: 880, y: 200, w: 300, h: 160, nodes: [
+      { id: 'g-data', name: '資料', type: 'data', x: 880, y: 200, w: 300, h: 160, nodes: [
         { id: 'database', type: 'database', name: '資料庫', technology: 'MongoDB', dx: 80, dy: 50 },
       ] },
     ],
@@ -134,7 +153,7 @@ const TEMPLATES: Record<string, Tpl> = {
       { id: 'g-fn', name: '函式', type: 'application', x: 480, y: 200, w: 300, h: 160, nodes: [
         { id: 'backend', type: 'backend', name: 'Lambda', technology: 'AWS Lambda', dx: 80, dy: 50 },
       ] },
-      { id: 'g-store', name: '儲存', type: 'data' as ContainerType, x: 840, y: 200, w: 320, h: 160, nodes: [
+      { id: 'g-store', name: '儲存', type: 'data', x: 840, y: 200, w: 320, h: 160, nodes: [
         { id: 'database', type: 'database', name: '資料庫', technology: 'DynamoDB', dx: 20, dy: 50 },
         { id: 'storage', type: 'storage', name: '物件儲存', technology: 'S3', dx: 170, dy: 50 },
       ] },
