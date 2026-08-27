@@ -11,7 +11,7 @@
 - 產品用途：透過互動式 Canvas 建立、編輯、儲存、載入、匯出軟體系統架構圖。
 - 核心價值：快速建立架構、視覺化 System/Application/Infrastructure/Data 架構、元件具明確語意、Node/Container/Connection 可編輯、Template 快速成型、匯出高品質 JPG、Architecture Model 與 Canvas Rendering 分離、未來可接 AI Architecture Generation。
 - **定位**：Developer-oriented System Architecture Canvas。參考 C4 Model、System/Cloud/Microservice/Event-driven/Deployment 架構圖。**不要**定位成 AI Company、AI Agent Simulator、Workflow 動畫、3D Digital Twin、Cyberpunk 視覺化、或一般流程圖工具。
-- 純前端、無後端；資料以 Pinia store + localStorage 持久化；部署目標 GitHub Pages（`vite.config.ts` `base: '/ai-company-os/'`）。
+- 純前端、無後端；資料以 Pinia store + localStorage 持久化；部署目標 GitHub Pages（`vite.config.ts` `base: '/architecture-canvas/'`）。
 
 ### 現行狀態（code-level）
 
@@ -102,7 +102,7 @@ src/
 
 - Node 版本需求：`^22.18.0 || >=24.12.0`。
 - Windows 環境：shell 為 git-bash；原生工具傳 `C:/...` 正斜線路徑。
-- 不要 commit `dist/`、`.eslintcache`。
+- 不要 commit `dist/`、`.eslintcache`；`npm run build` 產出到 `docs/`（已 commit 進 main，供 GitHub Pages 從分支部署讀取），不要忽略 `docs/`。
 - Prettier 只處理 `src/`（見 format script），其他目錄維持原樣。
 - 規格書以中文為主；回覆與註解跟隨使用者語言（繁體中文）。
 - 移除舊 AI Company OS 程式碼前，先確認 `App.vue` 與 `LandingView.vue` 已無引用，並保留測試通過。

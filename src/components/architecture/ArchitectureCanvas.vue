@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, markRaw, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, markRaw, onBeforeUnmount, onMounted } from 'vue'
 import { VueFlow, useVueFlow, MarkerType, ConnectionMode, type Node, type Edge, type Connection, type MouseTouchEvent } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import ArchNode from './ArchNode.vue'
@@ -29,7 +29,12 @@ const {
   onNodeMouseLeave,
   onPaneClick,
   onConnect,
+  onViewportChange,
+  getViewport,
 } = useVueFlow()
+// Vue Flow owns the live viewport (zoom/pan the user actually sees). We keep it
+// in sync with the store (single source of truth) in both directions so the
+// navbar's percentage + zoom buttons always agree with the canvas.
 
 const nodeTypes = markRaw({ arch: ArchNode, group: ArchGroupNode })
 
@@ -142,7 +147,12 @@ watch(
 )
 syncFromStore()
 
-// Fit-to-view: the navbar bumps `fitNonce`; we call Vue Flow's fitView once.
+// On first mount, fit the template into view so the canvas isn't stuck at the
+// default 1:1 zoom. This also pulls the live zoom back into the store via the
+// onViewportChange sync below, keeping the navbar % honest from the start.
+onMounted(() => {
+  fitView({ padding: 0.2, duration: 0 })
+})
 watch(
   () => store.fitRequested,
   () => fitView({ padding: 0.2, duration: 200 }),
@@ -343,16 +353,29 @@ function onKey(e: KeyboardEvent) {
 window.addEventListener('keydown', onKey)
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
-// Zoom controlled by the navbar (single source = store.viewport.zoom)
+// Zoom is the single source of truth in the store, but Vue Flow owns the live
+// viewport. We sync in BOTH directions:
+//   store -> canvas : when the navbar zoom buttons change the store, animate.
+//   canvas -> store : when the user pans/zooms (or fitView runs), push the live
+//                     zoom back into the store so the navbar % stays in sync.
 watch(
   () => store.current.viewport.zoom,
   (z) => {
+    if (Math.abs(z - getViewport().zoom) < 1e-3) return // avoid echo loop
     zoomTo(z, { duration: 150 })
     // Re-measure the selected node's screen position so the floating card
     // stays glued to it while zooming.
     if (store.selectedId) updateNodeScreenRect(store.selectedId)
   },
 )
+
+onViewportChange((vp) => {
+  // Keep the store's zoom as the single source of truth in sync with the
+  // canvas. Guarded so we don't fight the store->canvas watch above.
+  if (Math.abs(vp.zoom - store.current.viewport.zoom) >= 1e-3) {
+    store.current.viewport.zoom = vp.zoom
+  }
+})
 
 // --- Screen-rect bridge for the floating inspector -----------------------
 // The floating inspector lives in LandingView (outside VueFlow) but must
@@ -404,7 +427,7 @@ function onDragOver(e: DragEvent) {
       :connection-mode="ConnectionMode.Loose"
       :nodes-connectable="true"
       :zoom-on-scroll="false"
-      :default-viewport="{ zoom: store.current.viewport.zoom, x: 0, y: 0 }"
+      :default-viewport="{ zoom: 1, x: 0, y: 0 }"
       class="arch-flow"
     >
       <Background

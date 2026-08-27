@@ -1,5 +1,5 @@
 {
-  "name": "ai-company-os",
+  "name": "architecture-canvas",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -37,6 +37,7 @@
     "@types/node": "^24.13.3",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/eslint-config-typescript": "^14.9.0",
+    "@vue/test-utils": "^2.4.11",
     "@vue/tsconfig": "^0.9.1",
     "eslint": "^10.7.0",
     "eslint-config-prettier": "^10.1.8",

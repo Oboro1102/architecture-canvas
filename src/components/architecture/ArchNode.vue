@@ -3,6 +3,9 @@ import { computed } from 'vue'
 import { Handle, Position, ConnectionMode, type NodeProps } from '@vue-flow/core'
 
 const props = defineProps<NodeProps>()
+// Per-node-type accent (e.g. #38bdf8 for database, #34d399 for service). Injected
+// as the CSS custom property `--accent` so every node surface (border, glow,
+// handles, type/tech text) reads its own hue at REST — not only when selected.
 const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
 </script>
 
@@ -10,21 +13,11 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
   <div
     class="arch-node"
     :class="{ 'is-selected': props.selected }"
-    :style="{
-      borderColor: props.selected ? accent : 'rgba(51,71,102,0.9)',
-      boxShadow: props.selected
-        ? `0 0 0 2px ${accent}, 0 0 22px ${accent}66`
-        : 'none',
-    }"
+    :style="{ '--accent': accent }"
   >
-    <div
-      class="arch-node__glow"
-      :style="{
-        background: `radial-gradient(120px 60px at 50% 0%, ${accent}22, transparent 70%)`,
-      }"
-    />
+    <div class="arch-node__glow" />
     <div class="arch-node__label">{{ (props.data?.label as string) }}</div>
-    <div class="arch-node__type" :style="{ color: accent + 'cc' }">{{ (props.data?.typeLabel as string) }}</div>
+    <div class="arch-node__type">{{ (props.data?.typeLabel as string) }}</div>
     <div v-if="props.data?.technology" class="arch-node__tech">
       {{ (props.data?.technology as string) }}
     </div>
@@ -36,28 +29,24 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
       :position="Position.Left"
       :connection-mode="ConnectionMode.Loose"
       class="arch-handle"
-      :style="{ background: accent }"
     />
     <Handle
       type="source"
       :position="Position.Right"
       :connection-mode="ConnectionMode.Loose"
       class="arch-handle"
-      :style="{ background: accent }"
     />
     <Handle
       type="target"
       :position="Position.Top"
       :connection-mode="ConnectionMode.Loose"
       class="arch-handle"
-      :style="{ background: accent }"
     />
     <Handle
       type="source"
       :position="Position.Bottom"
       :connection-mode="ConnectionMode.Loose"
       class="arch-handle"
-      :style="{ background: accent }"
     />
   </div>
 </template>
@@ -71,9 +60,14 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
   gap: 2px;
   height: 100%;
   padding: 10px 14px;
-  border: 1px solid;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: 12px;
-  background: linear-gradient(180deg, #14213a 0%, #0e1830 100%);
+  /* Faint accent wash at the top so each node-group reads with its own hue. */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 12%, #0e1830) 0%,
+    #0e1830 60%
+  );
   color: #e2e8f0;
   cursor: grab;
   transition:
@@ -86,10 +80,14 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
 }
 .arch-node:hover {
   transform: translateY(-1px);
-  border-color: #38bdf8 !important;
+  border-color: var(--accent);
 }
 .arch-node.is-selected {
   transform: translateY(-1px);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 22px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .arch-node__glow {
   position: absolute;
@@ -97,6 +95,11 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
   border-radius: 12px;
   pointer-events: none;
   opacity: 0.8;
+  background: radial-gradient(
+    120px 60px at 50% 0%,
+    color-mix(in srgb, var(--accent) 18%, transparent),
+    transparent 70%
+  );
 }
 .arch-node__label {
   font-size: 14px;
@@ -107,19 +110,20 @@ const accent = computed(() => (props.data?.accent as string) ?? '#38bdf8')
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #7c93b8;
+  color: color-mix(in srgb, var(--accent) 75%, #e2e8f0);
 }
 .arch-node__tech {
   font-size: 11px;
-  color: #38bdf8;
+  color: var(--accent);
 }
 /* Connection handles: hidden until the node is hovered/selected, then they
-   fade in as small cyan dots on each side. */
+   fade in as small accent dots on each side. */
 .arch-handle {
   width: 9px;
   height: 9px;
   border: 2px solid #0b1220;
   border-radius: 9999px;
+  background: var(--accent);
   opacity: 0;
   transition: opacity 0.15s ease;
 }

@@ -168,12 +168,20 @@ npx vitest run
 
 ## 📐 部署
 
-純前端應用，無後端需求。`base` 已設為 `/ai-company-os/`（GitHub Pages 專案頁路徑）。
+純前端應用，無後端需求。`base` 已設為 `/architecture-canvas/`（GitHub Pages 專案頁路徑）。
+
+部署方式：**GitHub Pages「從分支部署」**（Settings → Pages → Source: Deploy from a branch → Branch: `main` → Folder: `/docs`）。`npm run build` 會把靜態網站直接產出到 `docs/` 並自動帶入 `.nojekyll`，commit 後 push 到 `main` 即自動上線。
 
 ```sh
-npm run build   # 產出 dist/
-# 部署 dist/ 至 GitHub Pages / Vercel / 任何靜態主機
+npm run build   # 產出 docs/（已含 .nojekyll，停用 Jekyll）
+git add docs
+git commit -m "build: update site"
+git push origin main   # GitHub Pages 自動從 main 的 /docs 發布
 ```
+
+上線網址：`https://<user>.github.io/architecture-canvas/`
+
+> 注意 `docs/` 需 commit 進 repo（`.gitignore` 已忽略 `dist/`，但**沒有**忽略 `docs/`，符合預期）。`public/.nojekyll` 會在建置時複製進 `docs/`，確保以 `_` 開頭的資源（如某些函式庫 chunk）不被 Jekyll 忽略。
 
 ## 🛠️ 開發指令
 
