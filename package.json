@@ -15,6 +15,7 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "@antv/x6": "^3.1.8",
     "@dicebear/bottts": "^9.4.2",
     "@dicebear/core": "^9.4.3",
     "@vue/devtools-api": "^8.2.1",
@@ -24,6 +25,7 @@
     "pinia": "^4.0.2",
     "reka-ui": "^2.10.4",
     "tailwind-merge": "^3.6.0",
+    "tslib": "^2.8.1",
     "vue": "^3.5.40"
   },
   "devDependencies": {

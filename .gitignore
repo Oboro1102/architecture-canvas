@@ -38,7 +38,5 @@ __screenshots__/
 # Vite
 *.timestamp-*-*.mjs
 
-AI Company OS — V1 Specification.md
-AI Company OS — V2 Specification.md
-AI Company OS — V3 Specification.md
+SPEC.md
 demo
