@@ -3,7 +3,13 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { Download, Upload, Grid3X3, Library, Plus, ZoomIn, ZoomOut, Maximize2 } from '@lucide/vue'
 import ArchitectureCanvas from '@/components/architecture/ArchitectureCanvas.vue'
 import FloatingInspector from '@/components/architecture/FloatingInspector.vue'
-import { NODE_GROUPS, NODE_LABELS, TEMPLATE_LABELS, buildTemplate, type NodeType } from '@/types/architecture'
+import {
+  NODE_GROUPS,
+  NODE_LABELS,
+  TEMPLATE_LABELS,
+  buildTemplate,
+  type NodeType,
+} from '@/types/architecture'
 import { useArchitectureStore } from '@/stores/architecture'
 import { useConfirm } from '@/composables/useConfirm'
 import Tooltip from '@/components/common/AppTooltip.vue'
@@ -25,6 +31,17 @@ onBeforeUnmount(() => window.removeEventListener('click', onTemplateClickOutside
 const selectedNode = computed(
   () => store.current.nodes.find((n) => n.id === store.selectedId) ?? null,
 )
+
+// Copyright line: starts at 2026; if the current year is later, show a
+// "2026 - 20XX" range. XX is the current year beyond 2026.
+const START_YEAR = 2026
+const copyright = computed(() => {
+  const year = new Date().getFullYear()
+  const base = `© ${START_YEAR} Design & Coding by ツキノリュウ with Hermes Agent.`
+  return year > START_YEAR
+    ? `© ${START_YEAR} - ${year} Design & Coding by ツキノリュウ with Hermes Agent.`
+    : base
+})
 
 function add(type: NodeType) {
   // Stagger new nodes so they don't stack perfectly on the same spot.
@@ -68,7 +85,12 @@ function onImportFile(e: Event) {
   reader.onload = async () => {
     const ok = store.importJson(String(reader.result))
     if (!ok) {
-      await confirm({ title: '匯入失敗', description: '檔案不是有效的架構 JSON。', confirmText: '確定', cancelText: '關閉' })
+      await confirm({
+        title: '匯入失敗',
+        description: '檔案不是有效的架構 JSON。',
+        confirmText: '確定',
+        cancelText: '關閉',
+      })
     } else {
       // Canvas watches the nodes array reference and auto-fits the imported
       // architecture once its nodes are measured.
@@ -123,43 +145,43 @@ function createGroup(x?: number, y?: number) {
       </div>
 
       <div class="flex items-center gap-2">
-      <div ref="templateMenu" class="relative inline-flex">
-        <Tooltip text="選擇範本">
-          <button
-            class="icon-btn"
-            :class="{ 'text-cyan-300 hover:text-cyan-200': showTemplates }"
-            aria-label="選擇範本"
-            aria-haspopup="menu"
-            :aria-expanded="showTemplates"
-            @click="showTemplates = !showTemplates"
-          >
-            <Grid3X3 class="size-4" />
-          </button>
-        </Tooltip>
-
-        <Transition
-          enter-active-class="transition duration-150 ease-out"
-          enter-from-class="opacity-0 scale-95"
-          leave-active-class="transition duration-120 ease-in"
-          leave-to-class="opacity-0 scale-95"
-        >
-          <div
-            v-if="showTemplates"
-            class="absolute right-0 top-full z-[60] mt-2 w-40 rounded-xl border border-slate-700 bg-[#0b1220]/95 p-1.5 shadow-2xl backdrop-blur"
-            role="menu"
-          >
+        <div ref="templateMenu" class="relative inline-flex">
+          <Tooltip text="選擇範本">
             <button
-              v-for="t in TEMPLATE_LABELS"
-              :key="t"
-              class="flex w-full items-center rounded-md px-3 py-2 text-left text-xs text-slate-300 transition-colors hover:bg-cyan-400/10 hover:text-cyan-200"
-              role="menuitem"
-              @click="applyTemplate(t); showTemplates = false"
+              class="icon-btn"
+              :class="{ 'text-cyan-300 hover:text-cyan-200': showTemplates }"
+              aria-label="選擇範本"
+              aria-haspopup="menu"
+              :aria-expanded="showTemplates"
+              @click="showTemplates = !showTemplates"
             >
-              {{ t }}
+              <Grid3X3 class="size-4" />
             </button>
-          </div>
-        </Transition>
-      </div>
+          </Tooltip>
+
+          <Transition
+            enter-active-class="transition duration-150 ease-out"
+            enter-from-class="opacity-0 scale-95"
+            leave-active-class="transition duration-120 ease-in"
+            leave-to-class="opacity-0 scale-95"
+          >
+            <div
+              v-if="showTemplates"
+              class="absolute right-0 top-full z-[60] mt-2 w-40 rounded-xl border border-slate-700 bg-[#0b1220]/95 p-1.5 shadow-2xl backdrop-blur"
+              role="menu"
+            >
+              <button
+                v-for="t in TEMPLATE_LABELS"
+                :key="t"
+                class="flex w-full items-center rounded-md px-3 py-2 text-left text-xs text-slate-300 transition-colors hover:bg-cyan-400/10 hover:text-cyan-200"
+                role="menuitem"
+                @click="applyTemplate(t); showTemplates = false"
+              >
+                {{ t }}
+              </button>
+            </div>
+          </Transition>
+        </div>
 
         <Tooltip text="新增">
           <button class="icon-btn" aria-label="新增" @click="store.newArchitecture()">
@@ -167,7 +189,11 @@ function createGroup(x?: number, y?: number) {
           </button>
         </Tooltip>
         <Tooltip text="匯出（儲存為 JSON）">
-          <button class="icon-btn text-cyan-300 hover:text-cyan-200" aria-label="匯出" @click="exportJson">
+          <button
+            class="icon-btn text-cyan-300 hover:text-cyan-200"
+            aria-label="匯出"
+            @click="exportJson"
+          >
             <Upload class="size-4" />
           </button>
         </Tooltip>
@@ -176,7 +202,13 @@ function createGroup(x?: number, y?: number) {
             <Download class="size-4" />
           </button>
         </Tooltip>
-        <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="onImportFile" />
+        <input
+          ref="fileInput"
+          type="file"
+          accept="application/json,.json"
+          class="hidden"
+          @change="onImportFile"
+        />
       </div>
     </header>
 
@@ -287,5 +319,13 @@ function createGroup(x?: number, y?: number) {
     <!-- Floating inspector: pops near the clicked node (replaces the old
          right-side panel). It reads the node's screen rect from the canvas. -->
     <FloatingInspector :selected-node="selectedNode" />
+
+    <!-- Copyright (bottom-center, non-interactive, low-key) -->
+    <div
+      class="pointer-events-none absolute bottom-4 left-1/2 z-40 -translate-x-1/2 text-[10px] tracking-wide text-slate-600"
+      aria-label="版權宣告"
+    >
+      {{ copyright }}
+    </div>
   </div>
 </template>
