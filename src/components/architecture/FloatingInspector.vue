@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { X, ArrowUpRight, ArrowDownRight, GripHorizontal } from '@lucide/vue'
+import { X, ArrowUpRight, ArrowDownRight, GripHorizontal, PenLine } from '@lucide/vue'
 import { NODE_LABELS, type ArchitectureNode } from '@/types/architecture'
 import { useArchitectureStore } from '@/stores/architecture'
 import { useNodeScreenRect } from '@/composables/useNodeScreenRect'
@@ -172,14 +172,17 @@ onBeforeUnmount(() => {
               {{ selectedContainer ? '群組' : NODE_LABELS[selectedNode!.type] }}
             </span>
           </div>
-          <input
-            :value="selectedContainer ? selectedContainer.name : selectedNode!.name"
-            class="mt-0.5 w-full bg-transparent text-base font-semibold text-slate-100 outline-none"
-            aria-label="名稱"
-            @input="selectedContainer
-              ? patchContainerName(($event.target as HTMLInputElement).value)
-              : patchField('name', ($event.target as HTMLInputElement).value)"
-          />
+          <div class="mt-0.5 flex items-center gap-1.5 border-b border-slate-600/80 pb-1 transition-colors focus-within:border-cyan-400">
+            <PenLine class="size-3.5 shrink-0 text-cyan-400/70" aria-hidden="true" />
+            <input
+              :value="selectedContainer ? selectedContainer.name : selectedNode!.name"
+              class="min-w-0 w-full bg-transparent text-base font-semibold text-slate-100 outline-none"
+              aria-label="名稱（可編輯）"
+              @input="selectedContainer
+                ? patchContainerName(($event.target as HTMLInputElement).value)
+                : patchField('name', ($event.target as HTMLInputElement).value)"
+            />
+          </div>
         </div>
         <button
           class="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-700/50 hover:text-white"
@@ -194,13 +197,16 @@ onBeforeUnmount(() => {
       <template v-if="selectedContainer">
         <label class="mb-2 block text-xs text-slate-400">
           說明
-          <textarea
-            :value="selectedContainer.description"
-            class="field mt-1"
-            rows="3"
-            placeholder="選填"
-            @input="store.updateContainer(selectedContainer.id, { description: ($event.target as HTMLTextAreaElement).value })"
-          />
+          <div class="field mt-1 flex items-start gap-2 border-b border-slate-600/80 focus-within:border-cyan-400">
+            <PenLine class="mt-1 size-3.5 shrink-0 text-cyan-400/70" aria-hidden="true" />
+            <textarea
+              :value="selectedContainer.description"
+              class="min-h-16 min-w-0 flex-1 resize-y bg-transparent outline-none"
+              rows="3"
+              placeholder="選填"
+              @input="store.updateContainer(selectedContainer.id, { description: ($event.target as HTMLTextAreaElement).value })"
+            />
+          </div>
         </label>
         <button
           class="mt-2 w-full rounded-md border border-slate-600/40 px-3 py-2 text-xs text-slate-300 transition-colors hover:bg-slate-700/30"
@@ -215,21 +221,29 @@ onBeforeUnmount(() => {
         <!-- Editable fields -->
         <label class="mb-2 block text-xs text-slate-400">
           技術
-          <input
-            :value="selectedNode.technology"
-            class="field mt-1"
-            placeholder="選填"
-            @input="patchField('technology', ($event.target as HTMLInputElement).value)"
-          />
+          <div class="field mt-1 flex items-center gap-2 border-b border-slate-600/80 focus-within:border-cyan-400">
+            <PenLine class="size-3.5 shrink-0 text-cyan-400/70" aria-hidden="true" />
+            <input
+              :value="selectedNode.technology"
+              class="min-w-0 flex-1 bg-transparent outline-none"
+              placeholder="選填"
+              aria-label="技術（可編輯）"
+              @input="patchField('technology', ($event.target as HTMLInputElement).value)"
+            />
+          </div>
         </label>
         <label class="block text-xs text-slate-400">
           說明
-          <textarea
-            :value="selectedNode.description"
-            class="field mt-1"
-            rows="3"
-            @input="patchField('description', ($event.target as HTMLTextAreaElement).value)"
-          />
+          <div class="field mt-1 flex items-start gap-2 border-b border-slate-600/80 focus-within:border-cyan-400">
+            <PenLine class="mt-1 size-3.5 shrink-0 text-cyan-400/70" aria-hidden="true" />
+            <textarea
+              :value="selectedNode.description"
+              class="min-h-16 min-w-0 flex-1 resize-y bg-transparent outline-none"
+              rows="3"
+              aria-label="說明（可編輯）"
+              @input="patchField('description', ($event.target as HTMLTextAreaElement).value)"
+            />
+          </div>
         </label>
 
         <!-- Connected nodes (focus forward / backward) -->
@@ -298,7 +312,6 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .field {
-  border: 1px solid #263650;
   background: #111b2d;
   border-radius: 0.375rem;
   padding: 0.5rem 0.625rem;
@@ -307,6 +320,6 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 .field:focus {
-  border-color: #38bdf8;
+  outline: none;
 }
 </style>

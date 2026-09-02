@@ -451,7 +451,7 @@ function onDragOver(e: DragEvent) {
       :node-types="nodeTypes"
       :connection-mode="ConnectionMode.Loose"
       :nodes-connectable="true"
-      :zoom-on-scroll="false"
+      :zoom-on-scroll="true"
       :default-viewport="{ zoom: 1, x: 0, y: 0 }"
       class="arch-flow"
     >

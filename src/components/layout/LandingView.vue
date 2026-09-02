@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { Download, Upload, Grid3X3, Library, Plus, ZoomIn, ZoomOut, Maximize2 } from '@lucide/vue'
+import { Download, Upload, Grid3X3, Library, Plus, ZoomIn, ZoomOut, Maximize2, PenLine } from '@lucide/vue'
 import ArchitectureCanvas from '@/components/architecture/ArchitectureCanvas.vue'
 import FloatingInspector from '@/components/architecture/FloatingInspector.vue'
 import {
@@ -136,11 +136,14 @@ function createGroup(x?: number, y?: number) {
         <div class="grid size-8 place-items-center rounded-lg bg-cyan-400/15 text-cyan-300">⌘</div>
         <div>
           <h1 class="text-sm font-semibold tracking-wide">系統架構圖建構工具</h1>
-          <input
-            v-model="store.current.name"
-            class="w-48 bg-transparent text-xs text-slate-400 outline-none"
-            aria-label="架構名稱"
-          />
+          <div class="flex w-48 items-center gap-1.5 border-b border-slate-600/80 pb-0.5 transition-colors focus-within:border-cyan-400">
+            <PenLine class="size-3 shrink-0 text-cyan-400/70" aria-hidden="true" />
+            <input
+              v-model="store.current.name"
+              class="min-w-0 flex-1 bg-transparent text-xs text-slate-400 outline-none"
+              aria-label="架構名稱（可編輯）"
+            />
+          </div>
         </div>
       </div>
 
