@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { Download, Upload, Grid3X3, Library, Plus, ZoomIn, ZoomOut, Maximize2, PenLine } from '@lucide/vue'
+import {
+  Download,
+  FileCode,
+  Upload,
+  Grid3X3,
+  Library,
+  Plus,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  PenLine,
+} from '@lucide/vue'
 import ArchitectureCanvas from '@/components/architecture/ArchitectureCanvas.vue'
 import FloatingInspector from '@/components/architecture/FloatingInspector.vue'
 import {
@@ -13,6 +24,7 @@ import {
 import { useArchitectureStore } from '@/stores/architecture'
 import { useConfirm } from '@/composables/useConfirm'
 import Tooltip from '@/components/common/AppTooltip.vue'
+import { renderArchitectureHtml } from '@/utils/exportHtml'
 
 const store = useArchitectureStore()
 const { confirm } = useConfirm()
@@ -61,6 +73,11 @@ function applyTemplate(value: unknown) {
   // template's nodes are measured — no explicit fit() call needed here.
 }
 
+function chooseTemplate(value: string) {
+  applyTemplate(value)
+  showTemplates.value = false
+}
+
 function exportJson() {
   const blob = new Blob(
     [JSON.stringify({ version: 1, type: 'architecture', ...store.current }, null, 2)],
@@ -71,6 +88,18 @@ function exportJson() {
   a.download = `${store.current.name}.json`
   a.click()
   URL.revokeObjectURL(a.href)
+}
+
+function exportHtml() {
+  const blob = new Blob([renderArchitectureHtml(store.current)], {
+    type: 'text/html;charset=utf-8',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${store.current.name || 'architecture'}.html`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -136,7 +165,9 @@ function createGroup(x?: number, y?: number) {
         <div class="grid size-8 place-items-center rounded-lg bg-cyan-400/15 text-cyan-300">⌘</div>
         <div>
           <h1 class="text-sm font-semibold tracking-wide">系統架構圖建構工具</h1>
-          <div class="flex w-48 items-center gap-1.5 border-b border-slate-600/80 pb-0.5 transition-colors focus-within:border-cyan-400">
+          <div
+            class="flex w-48 items-center gap-1.5 border-b border-slate-600/80 pb-0.5 transition-colors focus-within:border-cyan-400"
+          >
             <PenLine class="size-3 shrink-0 text-cyan-400/70" aria-hidden="true" />
             <input
               v-model="store.current.name"
@@ -178,7 +209,7 @@ function createGroup(x?: number, y?: number) {
                 :key="t"
                 class="flex w-full items-center rounded-md px-3 py-2 text-left text-xs text-slate-300 transition-colors hover:bg-cyan-400/10 hover:text-cyan-200"
                 role="menuitem"
-                @click="applyTemplate(t); showTemplates = false"
+                @click="chooseTemplate(t)"
               >
                 {{ t }}
               </button>
@@ -198,6 +229,15 @@ function createGroup(x?: number, y?: number) {
             @click="exportJson"
           >
             <Upload class="size-4" />
+          </button>
+        </Tooltip>
+        <Tooltip text="匯出唯讀 HTML">
+          <button
+            class="icon-btn text-cyan-300 hover:text-cyan-200"
+            aria-label="匯出唯讀 HTML"
+            @click="exportHtml"
+          >
+            <FileCode class="size-4" />
           </button>
         </Tooltip>
         <Tooltip text="匯入 JSON">
